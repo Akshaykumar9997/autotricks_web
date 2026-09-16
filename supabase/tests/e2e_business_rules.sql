@@ -1,11 +1,12 @@
 -- AutoTricks Master Automated Test Suite
--- Consolidates all 5 test suites:
+-- Consolidates all 6 test suites:
 -- 1. Day 1 & Day 2 Regression (158 checks)
 -- 2. Day 3 Business Logic (49 checks)
 -- 3. Mandatory Security Attacks (30 checks across 20 attack vectors)
 -- 4. Database-Level Invariants (13 checks)
 -- 5. Complete 21-Step E2E Workflow (20 checks)
--- Total: 270 automated test checks
+-- 6. Day 3 Link Hardening Invariant Suite (8 checks)
+-- Total: 278 automated test checks
 --
 -- Cleanly rolls back in a single test transaction.
 -- Outputs: TESTS RUN, TESTS PASSED, TESTS FAILED
@@ -1897,6 +1898,181 @@ begin
   select count(*) into n3 from public.documents where client_id = c_id;
   res := res || pg_temp.chk(n = 1 and n2 = 4 and n3 = 1,
     'STEP 23: Historical service record fully accessible to client (1 job, 4 work items, 1 invoice document)');
+  end;
+
+  -- ============================================================
+  -- SUITE 6: DAY 3 LINK HARDENING INVARIANT SUITE (8 CHECKS)
+  -- ============================================================
+  declare
+    z constant uuid := '00000000-0000-0000-0000-000000000000';
+    u_admin uuid := gen_random_uuid();
+    u_a uuid := gen_random_uuid();
+    u_b uuid := gen_random_uuid();
+    c_a uuid; c_b uuid; v_a uuid; v_b uuid;
+    sr_a uuid; sr_b uuid; sr_c uuid; sr_phone uuid;
+    q1 uuid; rev1 uuid; it1 uuid; job1 uuid;
+    sig_path text;
+    j jsonb; n_audit_before int; n_audit_after int;
+    t text; cid uuid; vid uuid;
+  begin
+    -- Setup users
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
+      (u_admin, z, 'authenticated', 'authenticated', 'link-m-admin@autotricks.test', now(), now()),
+      (u_a, z, 'authenticated', 'authenticated', 'link-m-client-a@autotricks.test', now(), now()),
+      (u_b, z, 'authenticated', 'authenticated', 'link-m-client-b@autotricks.test', now(), now());
+
+    insert into public.profiles (id, role, full_name) values (u_admin, 'ADMIN', 'Master Link Hardening Admin');
+
+    perform pg_temp.act('authenticated', u_admin);
+    insert into public.clients (full_name, phone, email) values ('Client Alpha M', '9800000091', 'alpham@test.org') returning id into c_a;
+    insert into public.clients (full_name, phone, email) values ('Client Beta M', '9800000092', 'betam@test.org') returning id into c_b;
+
+    insert into public.vehicles (client_id, make, model, chassis_number, registration_number)
+      values (c_a, 'Hyundai', 'Creta', 'MALC1000000000091', 'KA01AA9091') returning id into v_a;
+    insert into public.vehicles (client_id, make, model, chassis_number, registration_number)
+      values (c_b, 'Kia', 'Seltos', 'MZBS2000000000092', 'KA02BB9092') returning id into v_b;
+
+    perform pg_temp.act('service_role', null);
+    insert into public.profiles (id, role, client_id, full_name) values
+      (u_a, 'CLIENT', c_a, 'Client Alpha Profile M'),
+      (u_b, 'CLIENT', c_b, 'Client Beta Profile M');
+
+    -- Create website request sr_a
+    insert into public.service_requests (source, original_submission)
+      values ('WEBSITE', jsonb_build_object('customer_name', 'Client Alpha M', 'phone', '9800000091'))
+      returning id into sr_a;
+
+    -- TEST A: Valid initial linking
+    perform pg_temp.act('authenticated', u_admin);
+    j := public.admin_link_service_request(sr_a, c_a, v_a);
+    select status::text, client_id, vehicle_id into t, cid, vid from public.service_requests where id = sr_a;
+    res := res || pg_temp.chk(t = 'UNDER_REVIEW' and cid = c_a and vid = v_a,
+      'LINK-A: Valid initial linking moved NEW -> UNDER_REVIEW with Client A + Vehicle A');
+
+    -- TEST B: Re-link existing UNDER_REVIEW request rejected
+    select count(*) into n_audit_before from public.audit_logs where entity_id = sr_a;
+    begin
+      perform public.admin_link_service_request(sr_a, c_b, v_b);
+      res := res || E'\nFAIL LINK-B: Re-linking UNDER_REVIEW request was allowed';
+    exception when others then
+      select status::text, client_id, vehicle_id into t, cid, vid from public.service_requests where id = sr_a;
+      select count(*) into n_audit_after from public.audit_logs where entity_id = sr_a;
+      res := res || pg_temp.chk(
+        t = 'UNDER_REVIEW' and cid = c_a and vid = v_a and n_audit_before = n_audit_after,
+        'LINK-B: Re-linking UNDER_REVIEW request rejected; Client/Vehicle/status unchanged and no audit created [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST C: Cross-client vehicle attempt
+    perform pg_temp.act('service_role', null);
+    insert into public.service_requests (source, original_submission)
+      values ('WEBSITE', jsonb_build_object('customer_name', 'Client Beta M', 'phone', '9800000092'))
+      returning id into sr_b;
+
+    perform pg_temp.act('authenticated', u_admin);
+    begin
+      perform public.admin_link_service_request(sr_b, c_b, v_a);
+      res := res || E'\nFAIL LINK-C: Linking Client B with Client A vehicle was allowed';
+    exception when others then
+      select status::text, client_id, vehicle_id into t, cid, vid from public.service_requests where id = sr_b;
+      res := res || pg_temp.chk(
+        t = 'NEW' and cid is null and vid is null,
+        'LINK-C: Cross-client vehicle linking rejected; request remains NEW/unlinked [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST D: Quotation-created request
+    j := public.admin_create_quotation(sr_a, 'Hardening test quotation');
+    q1 := (j->>'quotation_id')::uuid;
+    rev1 := (j->>'revision_id')::uuid;
+    select status::text into t from public.service_requests where id = sr_a;
+    begin
+      perform public.admin_link_service_request(sr_a, c_b, v_b);
+      res := res || E'\nFAIL LINK-D: Re-linking QUOTATION_CREATED request was allowed';
+    exception when others then
+      select status::text, client_id into t, cid from public.service_requests where id = sr_a;
+      res := res || pg_temp.chk(
+        t = 'QUOTATION_CREATED' and cid = c_a,
+        'LINK-D: Re-linking QUOTATION_CREATED request rejected [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST E: Cancelled request
+    perform pg_temp.act('service_role', null);
+    insert into public.service_requests (source, original_submission)
+      values ('WEBSITE', jsonb_build_object('customer_name', 'Client Cancel M', 'phone', '9800000093'))
+      returning id into sr_c;
+
+    perform pg_temp.act('authenticated', u_admin);
+    j := public.admin_cancel_service_request(sr_c, 'Testing cancel rejection');
+    select status::text into t from public.service_requests where id = sr_c;
+
+    begin
+      perform public.admin_link_service_request(sr_c, c_a, v_a);
+      res := res || E'\nFAIL LINK-E: Linking CANCELLED request was allowed';
+    exception when others then
+      select status::text into t from public.service_requests where id = sr_c;
+      res := res || pg_temp.chk(
+        t = 'CANCELLED',
+        'LINK-E: Linking CANCELLED request rejected [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST F: Converted-to-job request
+    insert into public.quotation_items (quotation_revision_id, name, quantity, final_value)
+      values (rev1, 'Inspection Labour', 1, 1000.00) returning id into it1;
+    j := public.admin_send_quotation_revision(rev1);
+
+    perform pg_temp.act('authenticated', u_a);
+    j := public.client_accept_quotation_revision(rev1, true, 'Accepting for link hardening test');
+    sig_path := c_a::text || '/' || rev1::text || '/link-m-sig.png';
+    insert into storage.objects (bucket_id, name, owner_id, metadata)
+      values ('signatures', sig_path, u_a::text, '{"mimetype":"image/png"}');
+    j := public.client_sign_quotation_revision(rev1, sig_path);
+
+    perform pg_temp.act('authenticated', u_admin);
+    j := public.admin_create_service_job(rev1);
+    job1 := (j->>'service_job_id')::uuid;
+    select status::text into t from public.service_requests where id = sr_a;
+
+    begin
+      perform public.admin_link_service_request(sr_a, c_b, v_b);
+      res := res || E'\nFAIL LINK-F: Linking CONVERTED_TO_JOB request was allowed';
+    exception when others then
+      select status::text, client_id into t, cid from public.service_requests where id = sr_a;
+      res := res || pg_temp.chk(
+        t = 'CONVERTED_TO_JOB' and cid = c_a,
+        'LINK-F: Linking CONVERTED_TO_JOB request rejected [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST G: Direct table UPDATE bypass protection
+    begin
+      update public.service_requests set client_id = c_b, vehicle_id = v_b where id = sr_a;
+      res := res || E'\nFAIL LINK-G: Direct UPDATE changing client/vehicle was allowed';
+    exception when others then
+      select client_id, vehicle_id into cid, vid from public.service_requests where id = sr_a;
+      res := res || pg_temp.chk(
+        cid = c_a and vid = v_a,
+        'LINK-G: Direct table UPDATE changing client/vehicle blocked by trigger [' || sqlerrm || ']'
+      );
+    end;
+
+    -- TEST H: Already-linked NEW phone request
+    insert into public.service_requests (client_id, vehicle_id, source, created_by, original_submission)
+      values (c_a, v_a, 'PHONE', u_admin, '{"caller":"Alpha M"}')
+      returning id into sr_phone;
+
+    begin
+      perform public.admin_link_service_request(sr_phone, c_b, v_b);
+      res := res || E'\nFAIL LINK-H: Overwriting already-linked PHONE request was allowed';
+    exception when others then
+      select status::text, client_id, vehicle_id into t, cid, vid from public.service_requests where id = sr_phone;
+      res := res || pg_temp.chk(
+        t = 'NEW' and cid = c_a and vid = v_a,
+        'LINK-H: Overwriting already-linked PHONE request rejected [' || sqlerrm || ']'
+      );
+    end;
   end;
 
   -- ============================================================
