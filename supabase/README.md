@@ -8,6 +8,7 @@
 | `migrations/…002` – `…007` | Hardening: notification types, integrity guards, least-privilege grants + RLS, audit/notifications, workflow RPCs, Storage |
 | `migrations/20260913000008_auth_security_hardening.sql` | Day 2 hardening: product catalogue admin-only, internal notes protection (clients.notes & service_requests.admin_notes), dedicated admin views/RPCs, client portal views, notifications Realtime publication |
 | `migrations/20260916000009_business_logic_hardening.sql` | Day 3 hardening: Service request lifecycle guard, service job lifecycle guard, server-calculated totals, decimal math, quotation immutability, client-only acceptance, additional work rules, admin workflow RPCs |
+| `migrations/20260916000010_service_request_link_hardening.sql` | Day 3 final closure: Service request linking invariant guard & trigger protection |
 | `functions/submit-service-request` | Public website form endpoint (`verify_jwt=false`, validates + throttles, service role insert) |
 | `functions/admin-invite-user` | ADMIN-only portal access provisioning (invite + profile) |
 | `types/database.types.ts` | Generated from the live database schema |
@@ -16,7 +17,8 @@
 | `tests/03_security_attack_tests.sql` | 20 mandatory security attack vectors suite (30 PASS / 0 FAIL) |
 | `tests/04_business_invariants.sql` | Direct PostgreSQL integrity invariants suite (13 PASS / 0 FAIL) |
 | `tests/05_e2e_workflow.sql` | Complete 21-step realistic lifecycle flow (20 PASS / 0 FAIL) |
-| `tests/e2e_business_rules.sql` | Consolidated master test suite (270 PASS / 0 FAIL) |
+| `tests/06_link_hardening_tests.sql` | Service request linking invariant tests (8 PASS / 0 FAIL) |
+| `tests/e2e_business_rules.sql` | Consolidated master test suite (278 PASS / 0 FAIL) |
 
 ## Admin Accounts
 

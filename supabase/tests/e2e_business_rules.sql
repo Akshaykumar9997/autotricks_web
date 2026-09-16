@@ -12,7 +12,7 @@
 -- Outputs: TESTS RUN, TESTS PASSED, TESTS FAILED
 
 create or replace function pg_temp.act(p_role text, p_uid uuid)
-returns void language plpgsql as $
+returns void language plpgsql as $f$
 begin
   execute 'reset role';
   if p_role = 'postgres' then
@@ -23,14 +23,14 @@ begin
     case when p_uid is null then json_build_object('role', p_role)::text
          else json_build_object('sub', p_uid, 'role', p_role)::text end, true);
   execute format('set local role %I', p_role);
-end $;
+end $f$;
 
 create or replace function pg_temp.chk(p_ok boolean, p_label text)
-returns text language sql as $
+returns text language sql as $f$
   select E'\n' || case when coalesce(p_ok, false) then 'PASS ' else 'FAIL ' end || p_label;
-$;
+$f$;
 
-do $
+do $test$
 declare
   res text := '';
   n_pass int;
@@ -809,6 +809,7 @@ begin
   w_add1 uuid; w_add2 uuid;
   j jsonb; n int; num numeric; num2 numeric; t text; t2 text;
   begin
+    perform pg_temp.act('postgres', null);
     -- ============ SETUP ============
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
     (u_admin, z, 'authenticated', 'authenticated', 'day3-admin@autotricks.test', now(), now()),
@@ -1251,6 +1252,7 @@ begin
   job_b uuid; w_add_b uuid;
   j jsonb; n int; n2 int; n3 int; t text;
   begin
+    perform pg_temp.act('postgres', null);
     -- ============ SETUP ============
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
     (u_admin, z, 'authenticated', 'authenticated', 'sec-admin@autotricks.test', now(), now()),
@@ -1550,6 +1552,7 @@ begin
   sr1 uuid; p1 uuid; q1 uuid; rev1 uuid; it1 uuid; job1 uuid;
   j jsonb; n int; t text; num numeric;
   begin
+    perform pg_temp.act('postgres', null);
     -- Setup
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
     (u_admin, z, 'authenticated', 'authenticated', 'inv-admin@autotricks.test', now(), now()),
@@ -1730,6 +1733,7 @@ begin
   doc_sig uuid;
   j jsonb; n int; n2 int; n3 int; t text; t2 text; num numeric; num2 numeric;
   begin
+    perform pg_temp.act('postgres', null);
     -- Setup initial users
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
     (u_admin, z, 'authenticated', 'authenticated', 'workflow-admin@autotricks.test', now(), now()),
@@ -1915,6 +1919,7 @@ begin
     j jsonb; n_audit_before int; n_audit_after int;
     t text; cid uuid; vid uuid;
   begin
+    perform pg_temp.act('postgres', null);
     -- Setup users
     insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at) values
       (u_admin, z, 'authenticated', 'authenticated', 'link-m-admin@autotricks.test', now(), now()),
@@ -2089,4 +2094,4 @@ TESTS PASSED: %
 TESTS FAILED: %
 %', n_run, n_pass, n_fail, regexp_replace(res, ' \[[^]]*\]', '', 'g');
 end
-$;
+$test$;

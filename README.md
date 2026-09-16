@@ -1,4 +1,4 @@
-﻿# AutoTricks Lead & Quotation System
+# AutoTricks Lead & Quotation System
 
 Enterprise-grade automotive service quotation, lead management, and workshop lifecycle backend built on **Supabase** (PostgreSQL 17.6).
 
@@ -38,14 +38,16 @@ AutoTricks manages the complete customer and vehicle service lifecycle:
     │   ├── 20260913000006_workflow_rpcs.sql
     │   ├── 20260913000007_storage.sql
     │   ├── 20260913000008_auth_security_hardening.sql
-    │   └── 20260916000009_business_logic_hardening.sql
-    ├── tests/                                   # Transactional test suites (270 checks, 100% pass)
+    │   ├── 20260916000009_business_logic_hardening.sql
+    │   └── 20260916000010_service_request_link_hardening.sql
+    ├── tests/                                   # Transactional test suites (278 checks, 100% pass)
     │   ├── 01_day1_day2_regression.sql          # 158 baseline regression checks
     │   ├── 02_day3_business_logic.sql           # 49 business logic & state checks
     │   ├── 03_security_attack_tests.sql         # 30 checks across 20 attack vectors
     │   ├── 04_business_invariants.sql           # 13 direct PostgreSQL integrity invariants
     │   ├── 05_e2e_workflow.sql                  # 20 checks verifying 21-step realistic lifecycle
-    │   └── e2e_business_rules.sql               # Master consolidated test suite
+    │   ├── 06_link_hardening_tests.sql          # 8 checks for service request linking invariants
+    │   └── e2e_business_rules.sql               # Master consolidated test suite (278 checks)
     └── types/
         └── database.types.ts                    # Strongly-typed TypeScript definitions from live DB
 ```
@@ -54,7 +56,7 @@ AutoTricks manages the complete customer and vehicle service lifecycle:
 
 ## Verification & Test Results
 
-The backend includes 5 automated test suites running in isolated PostgreSQL rollback transactions:
+The backend includes 6 automated test suites running in isolated PostgreSQL rollback transactions:
 
 | Test Suite | Purpose | Tests Run | Result |
 |---|---|:---:|:---:|
@@ -63,7 +65,8 @@ The backend includes 5 automated test suites running in isolated PostgreSQL roll
 | `03_security_attack_tests.sql` | 20 mandatory attack vectors | 30 | **30 PASS / 0 FAIL** |
 | `04_business_invariants.sql` | Database integrity & foreign key constraints | 13 | **13 PASS / 0 FAIL** |
 | `05_e2e_workflow.sql` | Complete realistic 21-step customer flow | 20 | **20 PASS / 0 FAIL** |
-| **`e2e_business_rules.sql`** | **Master Consolidated Suite** | **270** | **270 PASS / 0 FAIL** |
+| `06_link_hardening_tests.sql` | Service request linking invariant tests | 8 | **8 PASS / 0 FAIL** |
+| **`e2e_business_rules.sql`** | **Master Consolidated Suite** | **278** | **278 PASS / 0 FAIL** |
 
 ---
 
