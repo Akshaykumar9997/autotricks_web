@@ -1,0 +1,25 @@
+# IDE / Editor configuration
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencies & Build outputs
+node_modules/
+dist/
+build/
+*.tmp
+*.log
