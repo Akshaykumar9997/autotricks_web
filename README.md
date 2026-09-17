@@ -85,3 +85,41 @@ The backend includes 6 automated test suites running in isolated PostgreSQL roll
 - **Project Ref**: `extsmeyxnzhhvcmwyvbi`
 - **Database Engine**: PostgreSQL 17.6
 - See `supabase/README.md` for complete RPC documentation, storage buckets policies, and client portal views.
+
+---
+
+## Flutter Mobile Application (Frontend Foundation)
+
+The AutoTricks client and workshop admin frontend is a mobile-first Flutter application designed for iOS, Android, and Web.
+
+### Visual Identity
+- **Atmosphere**: Dark charcoal & near-black automotive workshop aesthetic.
+- **Accents**: High-contrast energetic orange (`#FF6B00`) for primary actions, crimson red (`#E63946`) for attention/danger cues.
+- **Typography**: Clean geometric typography (Manrope).
+- **Core Dashboard**: Focused on workshop live status ("What is happening right now?") with cinematic mechanic repairing car visual, 72% progress gauge, and 3 core metrics (`OPEN`, `IN SERVICE`, `READY`).
+
+### Running the Application
+
+```bash
+# Get Flutter dependencies
+flutter pub get
+
+# Run on Chrome or connected mobile device
+flutter run -d chrome
+
+# Run with custom Supabase configuration (optional compile-time defines)
+flutter run -d chrome \
+  --dart-define=SUPABASE_URL=https://extsmeyxnzhhvcmwyvbi.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=your_public_anon_key
+```
+
+### Running Tests & Code Analysis
+
+```bash
+# Static analysis (0 errors, 0 warnings)
+flutter analyze
+
+# Automated test suite (unit, widget, routing, and responsive mobile tests)
+flutter test
+```
+

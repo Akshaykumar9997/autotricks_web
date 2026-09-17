@@ -25,3 +25,14 @@ build/
 *.log
 .temp/
 *.temp
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+ephemeral/
+*.iml
+.metadata

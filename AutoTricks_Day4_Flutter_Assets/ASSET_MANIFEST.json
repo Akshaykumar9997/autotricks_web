@@ -1,0 +1,18 @@
+{
+  "brand": [
+    "brand/autotricks_logo_original.png"
+  ],
+  "dashboard": [
+    "backgrounds/workshop_garage.png",
+    "illustrations/mechanic_repairing_car.png",
+    "cars/car_hero.png"
+  ],
+  "loader": [
+    "backgrounds/loader_garage_dark.jpg",
+    "cars/loader_car.png"
+  ],
+  "reference": [
+    "reference/autotricks_flutter_ui_reference_board.png"
+  ],
+  "note": "These images are visual assets generated/extracted from the approved AutoTricks concept board for the Flutter prototype. They are not production-optimized yet."
+}
