@@ -202,37 +202,40 @@ class MoreScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.red.withAlpha(80)),
               ),
-              child: ListTile(
-                leading: const Icon(Icons.logout_rounded, color: AppColors.red),
-                title: const Text(
-                  'Log Out',
-                  style: TextStyle(
-                    color: AppColors.red,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  leading: const Icon(Icons.logout_rounded, color: AppColors.red),
+                  title: const Text(
+                    'Log Out',
+                    style: TextStyle(
+                      color: AppColors.red,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.red,
-                  size: 20,
-                ),
-                onTap: () async {
-                  final confirmed = await AutoDialog.destructive(
-                    context,
-                    title: 'Log out of AutoTricks?',
-                    description:
-                        'You will need to sign back in with your administrator credentials to access workshop features.',
-                    deleteText: 'Log Out',
-                  );
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.red,
+                    size: 20,
+                  ),
+                  onTap: () async {
+                    final confirmed = await AutoDialog.destructive(
+                      context,
+                      title: 'Log out of AutoTricks?',
+                      description:
+                          'You will need to sign back in with your administrator credentials to access workshop features.',
+                      deleteText: 'Log Out',
+                    );
 
-                  if (confirmed == true && context.mounted) {
-                    await ref.read(authProvider.notifier).signOut();
-                    if (context.mounted) {
-                      context.go('/login');
+                    if (confirmed == true && context.mounted) {
+                      await ref.read(authProvider.notifier).signOut();
+                      if (context.mounted) {
+                        context.go('/login');
+                      }
                     }
-                  }
-                },
+                  },
+                ),
               ),
             ),
           ],
@@ -256,13 +259,15 @@ class MoreScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.border),
           ),
           child: Icon(icon, color: AppColors.orange, size: 20),
@@ -311,7 +316,8 @@ class MoreScreen extends ConsumerWidget {
             ),
           ],
         ),
-        onTap: onTap,
+          onTap: onTap,
+        ),
       ),
     );
   }

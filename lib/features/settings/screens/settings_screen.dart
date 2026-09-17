@@ -193,45 +193,48 @@ class SettingsScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: AppColors.textPrimary, size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (trailingText != null) ...[
-              Text(
-                trailingText,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textMuted,
-              size: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
             ),
-          ],
+            child: Icon(icon, color: AppColors.textPrimary, size: 20),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (trailingText != null) ...[
+                Text(
+                  trailingText,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     );
   }

@@ -271,59 +271,63 @@ class ClientPortalShell extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.orange, size: 20),
           ),
-          child: Icon(icon, color: AppColors.orange, size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
           ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (trailingText != null) ...[
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.orange.withAlpha(38),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  trailingText,
-                  style: const TextStyle(
-                    color: AppColors.orange,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (trailingText != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withAlpha(38),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    trailingText,
+                    style: const TextStyle(
+                      color: AppColors.orange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
+              ],
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textMuted,
+                size: 20,
               ),
-              const SizedBox(width: 8),
             ],
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textMuted,
-              size: 20,
-            ),
-          ],
+          ),
+          onTap: () {},
         ),
       ),
     );

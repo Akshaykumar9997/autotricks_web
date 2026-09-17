@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:autotricks/core/config/env_config.dart';
@@ -178,6 +179,9 @@ class AuthNotifier extends Notifier<AuthState> {
     String email = 'admin@autotricks.com',
     String name = 'Admin Alex',
   }) {
+    if (kReleaseMode || !EnvConfig.enableDevAuth) {
+      throw UnsupportedError('Mock authentication is prohibited in production builds.');
+    }
     state = AuthState(
       status: AuthStatus.authenticatedAdmin,
       email: email,
@@ -193,6 +197,9 @@ class AuthNotifier extends Notifier<AuthState> {
     String email = 'client@example.com',
     String name = 'Rohit Sharma',
   }) {
+    if (kReleaseMode || !EnvConfig.enableDevAuth) {
+      throw UnsupportedError('Mock authentication is prohibited in production builds.');
+    }
     state = AuthState(
       status: AuthStatus.authenticatedClient,
       email: email,

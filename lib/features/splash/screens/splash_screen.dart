@@ -183,14 +183,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Getting things ready...',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                              const Expanded(
+                                child: Text(
+                                  'Getting things ready...',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '$percent%',
                                 style: const TextStyle(

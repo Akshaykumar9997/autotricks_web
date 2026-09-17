@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Environment configuration for AutoTricks application.
 ///
 /// Uses compile-time environment variables (`--dart-define`) with public fallbacks
@@ -24,4 +26,9 @@ class EnvConfig {
   /// Whether the app is configured to use live Supabase data
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// Whether developer quick-auth shortcuts are permitted.
+  /// Strictly false in release builds (`!kReleaseMode`).
+  static const bool enableDevAuth = !kReleaseMode &&
+      bool.fromEnvironment('ENABLE_DEV_AUTH', defaultValue: true);
 }

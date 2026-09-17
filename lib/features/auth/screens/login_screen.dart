@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:autotricks/app/theme/app_colors.dart';
+import 'package:autotricks/core/config/env_config.dart';
 import 'package:autotricks/core/constants/app_assets.dart';
 import 'package:autotricks/core/widgets/auto_button.dart';
 import 'package:autotricks/core/widgets/auto_card.dart';
@@ -204,63 +206,64 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
-
-                  // Quick Demo Mode Switchers for Review / Testing
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'DEVELOPER / TESTING QUICK AUTH',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
+                  // Quick Demo Mode Switchers for Review / Testing (strictly development-only)
+                  if (kDebugMode && EnvConfig.enableDevAuth) ...[
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'DEVELOPER / TESTING QUICK AUTH',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AutoButton.secondary(
-                                text: 'Admin Mode',
-                                height: 36,
-                                icon: Icons.admin_panel_settings_outlined,
-                                onPressed: () {
-                                  ref
-                                      .read(authProvider.notifier)
-                                      .signInAsMockAdmin();
-                                  context.go('/dashboard');
-                                },
-                              ),
-                              const SizedBox(width: 12),
-                              AutoButton.secondary(
-                                text: 'Client Mode',
-                                height: 36,
-                                icon: Icons.person_outline,
-                                onPressed: () {
-                                  ref
-                                      .read(authProvider.notifier)
-                                      .signInAsMockClient();
-                                  context.go('/client-portal');
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AutoButton.secondary(
+                                  text: 'Admin Mode',
+                                  height: 36,
+                                  icon: Icons.admin_panel_settings_outlined,
+                                  onPressed: () {
+                                    ref
+                                        .read(authProvider.notifier)
+                                        .signInAsMockAdmin();
+                                    context.go('/dashboard');
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                AutoButton.secondary(
+                                  text: 'Client Mode',
+                                  height: 36,
+                                  icon: Icons.person_outline,
+                                  onPressed: () {
+                                    ref
+                                        .read(authProvider.notifier)
+                                        .signInAsMockClient();
+                                    context.go('/client-portal');
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
