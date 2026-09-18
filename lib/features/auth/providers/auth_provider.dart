@@ -1,225 +1,73 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:autotricks/core/config/env_config.dart';
-import 'package:autotricks/features/auth/models/user_profile.dart';
+import 'package:autotricks/data/repositories/auth_repository.dart';
 
-enum AuthStatus {
-  initial,
-  unauthenticated,
-  authenticating,
-  authenticatedAdmin,
-  authenticatedClient,
-}
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return SupabaseAuthRepository();
+});
 
 class AuthState {
-  final AuthStatus status;
-  final UserProfile? profile;
-  final String? email;
+  final bool isLoading;
   final String? errorMessage;
+  final UserProfile? profile;
 
   const AuthState({
-    this.status = AuthStatus.initial,
-    this.profile,
-    this.email,
+    this.isLoading = false,
     this.errorMessage,
+    this.profile,
   });
 
-  bool get isAuthenticated =>
-      status == AuthStatus.authenticatedAdmin ||
-      status == AuthStatus.authenticatedClient;
-
-  bool get isAdmin => status == AuthStatus.authenticatedAdmin;
-  bool get isClient => status == AuthStatus.authenticatedClient;
+  bool get isAuthenticated => profile != null;
+  bool get isAdmin => profile?.isAdmin ?? false;
 
   AuthState copyWith({
-    AuthStatus? status,
-    UserProfile? profile,
-    String? email,
+    bool? isLoading,
     String? errorMessage,
+    UserProfile? profile,
   }) {
     return AuthState(
-      status: status ?? this.status,
-      profile: profile ?? this.profile,
-      email: email ?? this.email,
+      isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
+      profile: profile ?? this.profile,
     );
   }
 }
 
 class AuthNotifier extends Notifier<AuthState> {
-  SupabaseClient? get _supabase {
-    try {
-      return Supabase.instance.client;
-    } catch (_) {
-      return null;
-    }
-  }
-
   @override
   AuthState build() {
-    // Check initial session
-    Future.microtask(() => checkSession());
-    return const AuthState(status: AuthStatus.initial);
+    final repo = ref.watch(authRepositoryProvider);
+    final currentProfile = repo.getCurrentProfile();
+    return AuthState(profile: currentProfile);
   }
 
-  Future<void> checkSession() async {
-    if (state.status != AuthStatus.initial) {
-      return;
-    }
-
-    final client = _supabase;
-    if (client == null || !EnvConfig.isConfigured) {
-      state = state.copyWith(status: AuthStatus.unauthenticated);
-      return;
-    }
-
-    final currentSession = client.auth.currentSession;
-    if (currentSession == null) {
-      state = state.copyWith(status: AuthStatus.unauthenticated);
-      return;
-    }
-
-    await _fetchProfileAndSetState(currentSession.user.id, currentSession.user.email);
-  }
-
-  Future<void> signIn({
+  Future<bool> signIn({
     required String email,
     required String password,
   }) async {
-    state = state.copyWith(status: AuthStatus.authenticating, errorMessage: null);
-
-    final client = _supabase;
-    if (client == null) {
-      // Mock login fallback if Supabase client is not available in local test env
-      if (email.contains('client')) {
-        signInAsMockClient(email: email);
-      } else {
-        signInAsMockAdmin(email: email);
-      }
-      return;
-    }
-
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final response = await client.auth.signInWithPassword(
+      final repo = ref.read(authRepositoryProvider);
+      final profile = await repo.signIn(
         email: email,
         password: password,
       );
-
-      final user = response.user;
-      if (user == null) {
-        state = state.copyWith(
-          status: AuthStatus.unauthenticated,
-          errorMessage: 'Authentication failed. Please try again.',
-        );
-        return;
-      }
-
-      await _fetchProfileAndSetState(user.id, user.email);
-    } on AuthException catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: e.message,
-      );
+      state = state.copyWith(isLoading: false, profile: profile);
+      return true;
     } catch (e) {
       state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: 'An unexpected error occurred: ${e.toString()}',
+        isLoading: false,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
       );
+      return false;
     }
-  }
-
-  Future<void> _fetchProfileAndSetState(String userId, String? email) async {
-    final client = _supabase;
-    if (client == null) return;
-
-    try {
-      final res = await client
-          .from('profiles')
-          .select('id, full_name, role, client_id')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (res != null) {
-        final profile = UserProfile.fromJson(res);
-        if (profile.isAdmin) {
-          state = AuthState(
-            status: AuthStatus.authenticatedAdmin,
-            profile: profile,
-            email: email,
-          );
-        } else {
-          state = AuthState(
-            status: AuthStatus.authenticatedClient,
-            profile: profile,
-            email: email,
-          );
-        }
-      } else {
-        // Fallback for user without profile entry yet
-        state = AuthState(
-          status: AuthStatus.authenticatedClient,
-          profile: UserProfile(
-            id: userId,
-            fullName: email?.split('@').first ?? 'User',
-            role: UserRole.client,
-          ),
-          email: email,
-        );
-      }
-    } catch (e) {
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: 'Failed to retrieve user profile: $e',
-      );
-    }
-  }
-
-  void signInAsMockAdmin({
-    String email = 'admin@autotricks.com',
-    String name = 'Admin Alex',
-  }) {
-    if (kReleaseMode || !EnvConfig.enableDevAuth) {
-      throw UnsupportedError('Mock authentication is prohibited in production builds.');
-    }
-    state = AuthState(
-      status: AuthStatus.authenticatedAdmin,
-      email: email,
-      profile: UserProfile(
-        id: 'mock-admin-001',
-        fullName: name,
-        role: UserRole.admin,
-      ),
-    );
-  }
-
-  void signInAsMockClient({
-    String email = 'client@example.com',
-    String name = 'Rohit Sharma',
-  }) {
-    if (kReleaseMode || !EnvConfig.enableDevAuth) {
-      throw UnsupportedError('Mock authentication is prohibited in production builds.');
-    }
-    state = AuthState(
-      status: AuthStatus.authenticatedClient,
-      email: email,
-      profile: UserProfile(
-        id: 'mock-client-001',
-        fullName: name,
-        role: UserRole.client,
-        clientId: 'mock-client-id',
-      ),
-    );
   }
 
   Future<void> signOut() async {
-    try {
-      await _supabase?.auth.signOut();
-    } catch (_) {}
-    state = const AuthState(status: AuthStatus.unauthenticated);
+    state = state.copyWith(isLoading: true);
+    final repo = ref.read(authRepositoryProvider);
+    await repo.signOut();
+    state = const AuthState();
   }
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(
-  AuthNotifier.new,
-);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);

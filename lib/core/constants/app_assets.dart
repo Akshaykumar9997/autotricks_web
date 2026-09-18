@@ -1,12 +1,14 @@
+/// Approved AutoTricks assets as defined in DESIGN.md Section 35.
 class AppAssets {
   AppAssets._();
 
+  // Canonical Brand Logo (User-provided original)
+  static const String logoMaster = 'assets/brand/autotricks_logo_master.png';
   static const String logoOriginal = 'assets/brand/autotricks_logo_original.png';
-  static const String workshopGarage = 'assets/backgrounds/workshop_garage.png';
-  static const String loaderGarageDark = 'assets/backgrounds/loader_garage_dark.jpg';
-  static const String orangeLightTexture = 'assets/backgrounds/orange_light_texture.png';
-  static const String carHero = 'assets/cars/car_hero.png';
-  static const String loaderCar = 'assets/cars/loader_car.png';
-  static const String mechanicRepairingCar = 'assets/illustrations/mechanic_repairing_car.png';
-  static const String uiReferenceBoard = 'assets/reference/autotricks_flutter_ui_reference_board.png';
+
+  // Approved Branded Visuals
+  static const String loadingVisual = 'assets/brand/autotricks_loading_visual_approved.png';
+  static const String genericEmptyState = 'assets/illustrations/autotricks_generic_empty_state_approved.png';
+  static const String serviceProgressVisual = 'assets/illustrations/autotricks_service_progress_visual_approved.png';
+  static const String heroGarage = 'assets/backgrounds/autotricks_hero_garage_approved.png';
 }

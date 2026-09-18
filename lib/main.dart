@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:autotricks/app/app.dart';
-import 'package:autotricks/core/config/env_config.dart';
+import 'core/config/env_config.dart';
+import 'design_system/theme/app_theme.dart';
+import 'routing/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,4 +26,20 @@ Future<void> main() async {
       child: AutoTricksApp(),
     ),
   );
+}
+
+class AutoTricksApp extends ConsumerWidget {
+  const AutoTricksApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      title: 'AutoTricks Admin',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      routerConfig: router,
+    );
+  }
 }
