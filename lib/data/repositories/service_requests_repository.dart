@@ -42,8 +42,8 @@ class SupabaseServiceRequestsRepository implements ServiceRequestsRepository {
   }) async {
     try {
       var query = _client
-          .from('service_requests')
-          .select('*, clients(*), vehicles(*)');
+          .from('admin_service_requests')
+          .select('*, vehicles(*), clients(id, full_name, phone, email, address, city, state, pincode, is_active)');
 
       if (statusFilter != null &&
           statusFilter.isNotEmpty &&
@@ -74,16 +74,15 @@ class SupabaseServiceRequestsRepository implements ServiceRequestsRepository {
 
       return list;
     } catch (e) {
-      // Return empty list if query fails or return baseline if live DB empty
-      return [];
+      rethrow;
     }
   }
 
   @override
   Future<ServiceRequestModel> getServiceRequestById(String id) async {
     final data = await _client
-        .from('service_requests')
-        .select('*, clients(*), vehicles(*)')
+        .from('admin_service_requests')
+        .select('*, vehicles(*), clients(id, full_name, phone, email, address, city, state, pincode, is_active)')
         .eq('id', id)
         .single();
 
@@ -105,7 +104,6 @@ class SupabaseServiceRequestsRepository implements ServiceRequestsRepository {
       'client_id': clientId,
       'vehicle_id': vehicleId,
       'source': 'PHONE',
-      'status': 'NEW',
       'admin_notes': description,
       'created_by': currentUserId,
     };
@@ -113,10 +111,11 @@ class SupabaseServiceRequestsRepository implements ServiceRequestsRepository {
     final response = await _client
         .from('service_requests')
         .insert(insertData)
-        .select('*, clients(*), vehicles(*)')
+        .select('id, request_number, client_id, vehicle_id, source, status, created_at, updated_at')
         .single();
 
-    return ServiceRequestModel.fromJson(response);
+    final newId = response['id'] as String;
+    return await getServiceRequestById(newId);
   }
 
   @override

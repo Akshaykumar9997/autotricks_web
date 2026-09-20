@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../design_system/components/auto_app_bar.dart';
 import '../../../design_system/components/auto_badge.dart';
@@ -102,6 +103,13 @@ class _ServiceRequestDetailScreenState
         title: 'Service Request',
         showBack: true,
         showLogo: true,
+        onBack: () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/admin/requests');
+          }
+        },
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.textSecondary, size: 20),
@@ -307,22 +315,42 @@ class _ServiceRequestDetailScreenState
 
   Widget _buildCustomerCard(ServiceRequestModel sr) {
     return AutoCard(
+      onTap: sr.clientId != null ? () => context.push('/admin/clients/${sr.clientId}') : null,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                'CUSTOMER',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'CUSTOMER',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
               ),
+              if (sr.clientId != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View Profile',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 14, color: AppColors.primary),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -406,6 +434,7 @@ class _ServiceRequestDetailScreenState
 
   Widget _buildVehicleCard(ServiceRequestModel sr) {
     return AutoCard(
+      onTap: sr.vehicleId != null ? () => context.push('/admin/vehicles/${sr.vehicleId}') : null,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,19 +477,33 @@ class _ServiceRequestDetailScreenState
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            sr.vehicleTitle,
-            style: AppTypography.headlineSmall.copyWith(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Vehicle Registered with Client',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sr.vehicleTitle,
+                      style: AppTypography.headlineSmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Vehicle Registered with Client',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (sr.vehicleId != null)
+                const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+            ],
           ),
         ],
       ),

@@ -76,7 +76,7 @@ class _CreateServiceRequestScreenState
       if (mounted) {
         AutoToast.showSuccess(
             context, 'Request #${newSr.requestNumber} created');
-        context.go('/admin/requests/${newSr.id}');
+        context.pushReplacement('/admin/requests/${newSr.id}');
       }
     } catch (e) {
       if (mounted) {
@@ -96,10 +96,17 @@ class _CreateServiceRequestScreenState
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const AutoAppBar(
+      appBar: AutoAppBar(
         title: 'Create Service Request',
         showBack: true,
         showLogo: true,
+        onBack: () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/admin/requests');
+          }
+        },
       ),
       body: Stack(
         children: [

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../design_system/components/auto_bottom_nav.dart';
+import '../design_system/components/auto_bottom_sheet.dart';
+import '../design_system/components/auto_list_tile.dart';
 import '../design_system/components/auto_toast.dart';
+import '../design_system/tokens/app_colors.dart';
 
 /// Shell hosting the canonical AutoBottomNav for Admin Foundation.
 class AdminShellScreen extends StatelessWidget {
@@ -21,10 +24,97 @@ class AdminShellScreen extends StatelessWidget {
     if (location.startsWith('/admin/quotes')) {
       return AdminNavTab.quotes;
     }
-    if (location.startsWith('/admin/more')) {
+    if (location.startsWith('/admin/more') ||
+        location.startsWith('/admin/clients') ||
+        location.startsWith('/admin/vehicles') ||
+        location.startsWith('/admin/products')) {
       return AdminNavTab.more;
     }
     return AdminNavTab.home;
+  }
+
+  void _showMoreSheet(BuildContext context) {
+    AutoBottomSheet.show(
+      context: context,
+      title: 'CRM & Operations',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AutoListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.people_outline, color: AppColors.primary, size: 22),
+            ),
+            title: 'Clients',
+            subtitle: 'View & manage customer profiles',
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/admin/clients');
+            },
+          ),
+          AutoListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.directions_car_outlined, color: AppColors.primary, size: 22),
+            ),
+            title: 'Vehicles',
+            subtitle: 'View registered fleet & specifications',
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/admin/vehicles');
+            },
+          ),
+          AutoListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 22),
+            ),
+            title: 'Products Catalogue',
+            subtitle: 'Parts, consumables & quote pricing',
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/admin/products');
+            },
+          ),
+          AutoListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.settings_outlined, color: AppColors.textMuted, size: 22),
+            ),
+            title: 'Settings',
+            subtitle: 'System preferences (Batch 5)',
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            onTap: () {
+              Navigator.of(context).pop();
+              AutoToast.showInfo(context, 'Settings scheduled for Batch 5 (A22–A26).');
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -48,10 +138,7 @@ class AdminShellScreen extends StatelessWidget {
               );
               break;
             case AdminNavTab.more:
-              AutoToast.showInfo(
-                context,
-                'More & settings scheduled for Batch 5 (A22–A26).',
-              );
+              _showMoreSheet(context);
               break;
           }
         },
@@ -59,16 +146,10 @@ class AdminShellScreen extends StatelessWidget {
           context.push('/admin/requests/create');
         },
         onCreateClient: () {
-          AutoToast.showInfo(
-            context,
-            'Client creation scheduled for Batch 2 CRM (A06–A11).',
-          );
+          context.push('/admin/clients/create');
         },
         onCreateVehicle: () {
-          AutoToast.showInfo(
-            context,
-            'Vehicle registration scheduled for Batch 2 CRM (A06–A11).',
-          );
+          context.push('/admin/vehicles/create');
         },
       ),
     );

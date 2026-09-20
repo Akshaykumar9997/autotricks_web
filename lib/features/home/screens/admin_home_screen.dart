@@ -183,9 +183,7 @@ class AdminHomeScreen extends ConsumerWidget {
         // Create Client
         Expanded(
           child: InkWell(
-            onTap: () {
-              AutoToast.showInfo(context, 'Client management available in CRM batch.');
-            },
+            onTap: () => context.push('/admin/clients/create'),
             borderRadius: AppRadius.radiusMd,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -224,9 +222,7 @@ class AdminHomeScreen extends ConsumerWidget {
         // Create Vehicle
         Expanded(
           child: InkWell(
-            onTap: () {
-              AutoToast.showInfo(context, 'Vehicle registration available in CRM batch.');
-            },
+            onTap: () => context.push('/admin/vehicles/create'),
             borderRadius: AppRadius.radiusMd,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
