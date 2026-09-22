@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:autotricks/data/models/activity_item_model.dart';
 import 'package:autotricks/data/models/client_model.dart';
 import 'package:autotricks/data/models/product_model.dart';
+import 'package:autotricks/data/models/quotation_model.dart';
 import 'package:autotricks/data/models/service_job_summary_model.dart';
 import 'package:autotricks/data/models/service_request_model.dart';
 import 'package:autotricks/data/models/vehicle_model.dart';
@@ -11,6 +12,7 @@ import 'package:autotricks/data/repositories/auth_repository.dart';
 import 'package:autotricks/data/repositories/client_vehicle_repository.dart';
 import 'package:autotricks/data/repositories/home_repository.dart';
 import 'package:autotricks/data/repositories/products_repository.dart';
+import 'package:autotricks/data/repositories/quotations_repository.dart';
 import 'package:autotricks/data/repositories/service_requests_repository.dart';
 
 class MockAuthRepository implements AuthRepository {
@@ -86,6 +88,8 @@ class MockServiceRequestsRepository implements ServiceRequestsRepository {
       requestNumber: 'SR-2026-00021',
       source: 'PHONE',
       status: 'NEW',
+      clientId: 'c-1',
+      vehicleId: 'v-1',
       adminNotes: 'Routine 25k service + noticeable brake squeal.',
       createdAt: DateTime.now().subtract(const Duration(minutes: 18)),
       updatedAt: DateTime.now().subtract(const Duration(minutes: 18)),
@@ -156,7 +160,7 @@ class MockServiceRequestsRepository implements ServiceRequestsRepository {
   Future<ServiceRequestModel> getServiceRequestById(String id) async {
     return items.firstWhere(
       (element) => element.id == id,
-      orElse: () => items.first,
+      orElse: () => throw Exception('Service request not found: $id'),
     );
   }
 
@@ -679,3 +683,708 @@ class MockProductsRepository implements ProductsRepository {
     throw Exception('Product not found for status toggle: $id');
   }
 }
+
+class MockQuotationsRepository implements QuotationsRepository {
+  final List<QuotationModel> quotes;
+
+  MockQuotationsRepository({List<QuotationModel>? initialQuotes})
+      : quotes = initialQuotes ?? [
+          QuotationModel(
+            id: 'quote-1',
+            quotationNumber: 'QT-2026-00012',
+            serviceRequestId: 'sr-1',
+            createdBy: 'usr-admin-1',
+            createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+            updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+            serviceRequest: ServiceRequestModel(
+              id: 'sr-1',
+              requestNumber: 'SR-2026-00021',
+              source: 'PHONE',
+              status: 'UNDER_REVIEW',
+              adminNotes: 'Routine 25k service + noticeable brake squeal.',
+              createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+              updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+              client: const ClientModel(
+                id: 'c-1',
+                fullName: 'Rahul Kumar',
+                phone: '+91 98450 12890',
+                email: 'rahul.kumar@gmail.com',
+              ),
+              vehicle: const VehicleModel(
+                id: 'v-1',
+                clientId: 'c-1',
+                make: 'Honda',
+                model: 'City',
+                manufacturingYear: 2022,
+                registrationNumber: 'KA 01 MJ 5022',
+              ),
+            ),
+            revisions: [
+              QuotationRevisionModel(
+                id: 'rev-1',
+                quotationId: 'quote-1',
+                revisionNumber: 1,
+                status: 'DRAFT',
+                subtotal: 18500.00,
+                discount: 1000.00,
+                tax: 3150.00,
+                total: 20650.00,
+                notes: 'Standard 25,000 km periodic inspection + brake overhaul.',
+                terms: 'Prices valid for 15 days.',
+                createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+                items: [
+                  QuotationItemModel(
+                    id: 'item-1',
+                    quotationRevisionId: 'rev-1',
+                    catalogueProductId: 'prd-1',
+                    name: 'Synthetic Engine Oil (5W-30)',
+                    description: 'Full synthetic 4.5L drain & fill',
+                    quantity: 1,
+                    finalValue: 4500.00,
+                    lineTotal: 4500.00,
+                    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+                    updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+                  ),
+                  QuotationItemModel(
+                    id: 'item-2',
+                    quotationRevisionId: 'rev-1',
+                    name: 'Front Ceramic Brake Pad Set',
+                    description: 'OEM replacement ceramic pads',
+                    quantity: 1,
+                    finalValue: 6500.00,
+                    lineTotal: 6500.00,
+                    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+                    updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+                  ),
+                  QuotationItemModel(
+                    id: 'item-3',
+                    quotationRevisionId: 'rev-1',
+                    name: 'Comprehensive Brake System Overhaul Labour',
+                    description: 'Caliper servicing, disc skimming, bleeding',
+                    quantity: 1,
+                    finalValue: 7500.00,
+                    lineTotal: 7500.00,
+                    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+                    updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          QuotationModel(
+            id: 'quote-2',
+            quotationNumber: 'QT-2026-00013',
+            serviceRequestId: 'sr-2',
+            createdBy: 'usr-admin-1',
+            createdAt: DateTime.now().subtract(const Duration(days: 1)),
+            updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+            serviceRequest: ServiceRequestModel(
+              id: 'sr-2',
+              requestNumber: 'SR-2026-00015',
+              source: 'APP',
+              status: 'QUOTATION_SENT',
+              adminNotes: 'AC gas recharge and periodic check.',
+              createdAt: DateTime.now().subtract(const Duration(days: 1)),
+              updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+              client: const ClientModel(
+                id: 'c-2',
+                fullName: 'Priya Nair',
+                phone: '+91 98111 22334',
+                email: 'priya.nair@example.com',
+              ),
+              vehicle: const VehicleModel(
+                id: 'v-2',
+                clientId: 'c-2',
+                make: 'Hyundai',
+                model: 'Creta',
+                manufacturingYear: 2021,
+                registrationNumber: 'DL 03 CA 1001',
+              ),
+            ),
+            revisions: [
+              QuotationRevisionModel(
+                id: 'rev-2',
+                quotationId: 'quote-2',
+                revisionNumber: 1,
+                status: 'SENT',
+                subtotal: 12000.00,
+                discount: 0.0,
+                tax: 2160.00,
+                total: 14160.00,
+                notes: 'AC servicing and gas recharge.',
+                terms: 'Standard terms apply.',
+                createdAt: DateTime.now().subtract(const Duration(days: 1)),
+                sentAt: DateTime.now().subtract(const Duration(days: 1)),
+                items: [
+                  QuotationItemModel(
+                    id: 'item-201',
+                    quotationRevisionId: 'rev-2',
+                    name: 'AC Gas R134a Recharge',
+                    quantity: 1,
+                    finalValue: 2500.00,
+                    lineTotal: 2500.00,
+                    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+                    updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          QuotationModel(
+            id: 'quote-3',
+            quotationNumber: 'QT-2026-00014',
+            serviceRequestId: 'sr-3',
+            createdBy: 'usr-admin-1',
+            createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+            updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
+            serviceRequest: ServiceRequestModel(
+              id: 'sr-3',
+              requestNumber: 'SR-2026-00016',
+              source: 'MANUAL',
+              status: 'QUOTATION_SENT',
+              adminNotes: 'Tyre replacement and wheel balancing.',
+              createdAt: DateTime.now().subtract(const Duration(days: 2)),
+              updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
+              client: const ClientModel(
+                id: 'c-3',
+                fullName: 'Amit Patel',
+                phone: '+91 99000 11223',
+                email: 'amit.patel@example.com',
+              ),
+              vehicle: const VehicleModel(
+                id: 'v-3',
+                clientId: 'c-3',
+                make: 'Toyota',
+                model: 'Innova Crysta',
+                manufacturingYear: 2020,
+                registrationNumber: 'MH 02 EE 4004',
+              ),
+            ),
+            revisions: [
+              QuotationRevisionModel(
+                id: 'rev-3',
+                quotationId: 'quote-3',
+                revisionNumber: 1,
+                status: 'VIEWED',
+                subtotal: 8000.00,
+                discount: 500.0,
+                tax: 1350.00,
+                total: 8850.00,
+                notes: 'Client opened quotation in portal.',
+                terms: 'Standard terms apply.',
+                createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+                sentAt: DateTime.now().subtract(const Duration(hours: 14)),
+                viewedAt: DateTime.now().subtract(const Duration(hours: 10)),
+                items: [
+                  QuotationItemModel(
+                    id: 'item-301',
+                    quotationRevisionId: 'rev-3',
+                    name: 'Wheel Alignment & Balancing',
+                    quantity: 1,
+                    finalValue: 1500.00,
+                    lineTotal: 1500.00,
+                    createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+                    updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          QuotationModel(
+            id: 'quote-4',
+            quotationNumber: 'QT-2026-00015',
+            serviceRequestId: 'sr-4',
+            createdBy: 'usr-admin-1',
+            createdAt: DateTime.now().subtract(const Duration(days: 3)),
+            updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+            serviceRequest: ServiceRequestModel(
+              id: 'sr-4',
+              requestNumber: 'SR-2026-00017',
+              source: 'MANUAL',
+              status: 'CANCELLED',
+              adminNotes: 'Customer declined service.',
+              createdAt: DateTime.now().subtract(const Duration(days: 4)),
+              updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+              client: const ClientModel(
+                id: 'c-4',
+                fullName: 'Vikram Seth',
+                phone: '+91 97777 88899',
+                email: 'vikram.seth@example.com',
+              ),
+              vehicle: const VehicleModel(
+                id: 'v-4',
+                clientId: 'c-4',
+                make: 'Maruti Suzuki',
+                model: 'Swift',
+                manufacturingYear: 2018,
+                registrationNumber: 'DL 08 BX 9988',
+              ),
+            ),
+            revisions: [
+              QuotationRevisionModel(
+                id: 'rev-4',
+                quotationId: 'quote-4',
+                revisionNumber: 1,
+                status: 'CANCELLED',
+                subtotal: 5000.00,
+                discount: 0.0,
+                tax: 900.00,
+                total: 5900.00,
+                notes: 'Cancelled per client request.',
+                terms: 'Standard terms apply.',
+                createdAt: DateTime.now().subtract(const Duration(days: 3)),
+                items: [
+                  QuotationItemModel(
+                    id: 'item-401',
+                    quotationRevisionId: 'rev-4',
+                    name: 'General Inspection',
+                    quantity: 1,
+                    finalValue: 5000.00,
+                    lineTotal: 5000.00,
+                    createdAt: DateTime.now().subtract(const Duration(days: 3)),
+                    updatedAt: DateTime.now().subtract(const Duration(days: 3)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ];
+
+  @override
+  Future<List<QuotationModel>> fetchQuotations({
+    String? statusFilter,
+    String? searchQuery,
+  }) async {
+    var result = List<QuotationModel>.from(quotes);
+
+    if (statusFilter != null && statusFilter.isNotEmpty && statusFilter.toUpperCase() != 'ALL') {
+      final normalized = statusFilter.trim().toUpperCase().replaceAll(' ', '_');
+      result = result.where((q) => q.currentStatus.toUpperCase().replaceAll(' ', '_') == normalized).toList();
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.toLowerCase().trim();
+      result = result.where((quote) {
+        final matchesNum = quote.quotationNumber.toLowerCase().contains(q);
+        final matchesClient = quote.customerName.toLowerCase().contains(q);
+        final matchesPlate = quote.vehiclePlate.toLowerCase().contains(q);
+        final matchesSR = quote.requestNumber.toLowerCase().contains(q);
+        return matchesNum || matchesClient || matchesPlate || matchesSR;
+      }).toList();
+    }
+
+    return result;
+  }
+
+  @override
+  Future<QuotationModel> getQuotationById(String id) async {
+    final quote = quotes.firstWhere(
+      (q) => q.id == id,
+      orElse: () => throw Exception('Quotation not found: $id'),
+    );
+    return quote;
+  }
+
+  @override
+  Future<QuotationModel?> getQuotationByServiceRequestId(String serviceRequestId) async {
+    final matches = quotes.where((q) => q.serviceRequestId == serviceRequestId).toList();
+    if (matches.isEmpty) return null;
+    return matches.first;
+  }
+
+  @override
+  Future<QuotationModel> createDraftQuotation({
+    required String serviceRequestId,
+    required List<DraftQuotationItemInput> items,
+    double discount = 0,
+    double tax = 0,
+    String? notes,
+    String? terms,
+  }) async {
+    final subtotal = items.fold(0.0, (sum, it) => sum + it.lineTotal);
+    final total = (subtotal - discount + tax).clamp(0.0, double.infinity);
+
+    final newId = 'quote-${quotes.length + 1}';
+    final newRevId = 'rev-${quotes.length + 1}-1';
+    final quotationNumber = 'QT-2026-${(quotes.length + 1).toString().padLeft(5, '0')}';
+
+    final revisionItems = items.asMap().entries.map((e) {
+      final idx = e.key;
+      final input = e.value;
+      return QuotationItemModel(
+        id: 'item-$newRevId-$idx',
+        quotationRevisionId: newRevId,
+        catalogueProductId: input.catalogueProductId,
+        name: input.name,
+        description: input.description,
+        quantity: input.quantity,
+        finalValue: input.finalValue,
+        lineTotal: input.lineTotal,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }).toList();
+
+    final revision = QuotationRevisionModel(
+      id: newRevId,
+      quotationId: newId,
+      revisionNumber: 1,
+      status: 'DRAFT',
+      subtotal: subtotal,
+      discount: discount,
+      tax: tax,
+      total: total,
+      notes: notes,
+      terms: terms,
+      createdAt: DateTime.now(),
+      items: revisionItems,
+    );
+
+    final newQuote = QuotationModel(
+      id: newId,
+      quotationNumber: quotationNumber,
+      serviceRequestId: serviceRequestId,
+      createdBy: 'usr-admin-1',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      serviceRequest: ServiceRequestModel(
+        id: serviceRequestId,
+        requestNumber: 'SR-2026-00021',
+        source: 'PHONE',
+        status: 'UNDER_REVIEW',
+        adminNotes: 'Quoted by admin',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        client: const ClientModel(
+          id: 'c-1',
+          fullName: 'Rahul Kumar',
+          phone: '+91 98450 12890',
+        ),
+        vehicle: const VehicleModel(
+          id: 'v-1',
+          clientId: 'c-1',
+          make: 'Honda',
+          model: 'City',
+          registrationNumber: 'KA 01 MJ 5022',
+        ),
+      ),
+      revisions: [revision],
+    );
+
+    quotes.insert(0, newQuote);
+    return newQuote;
+  }
+
+  @override
+  Future<List<QuotationItemModel>> fetchRevisionItems(String revisionId) async {
+    for (final q in quotes) {
+      for (final rev in q.revisions) {
+        if (rev.id == revisionId) {
+          return rev.items;
+        }
+      }
+    }
+    return [];
+  }
+
+  @override
+  Future<Map<String, dynamic>> createQuotationRevision(String quotationId) async {
+    final quoteIndex = quotes.indexWhere((q) => q.id == quotationId);
+    if (quoteIndex == -1) throw Exception('Quotation not found: $quotationId');
+
+    final quote = quotes[quoteIndex];
+    final latestRev = quote.currentRevision;
+    final nextRevNum = (latestRev?.revisionNumber ?? 0) + 1;
+    final newRevId = 'rev-${quote.id}-$nextRevNum';
+
+    final copiedItems = (latestRev?.items ?? []).map((it) {
+      return QuotationItemModel(
+        id: 'item-$newRevId-${it.id}',
+        quotationRevisionId: newRevId,
+        catalogueProductId: it.catalogueProductId,
+        name: it.name,
+        description: it.description,
+        quantity: it.quantity,
+        finalValue: it.finalValue,
+        lineTotal: it.lineTotal,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }).toList();
+
+    final newRevision = QuotationRevisionModel(
+      id: newRevId,
+      quotationId: quote.id,
+      revisionNumber: nextRevNum,
+      status: 'DRAFT',
+      subtotal: latestRev?.subtotal ?? 0.0,
+      discount: latestRev?.discount ?? 0.0,
+      tax: latestRev?.tax ?? 0.0,
+      total: latestRev?.total ?? 0.0,
+      notes: latestRev?.notes,
+      terms: latestRev?.terms,
+      createdAt: DateTime.now(),
+      items: copiedItems,
+    );
+
+    final updatedRevisions = [newRevision, ...quote.revisions];
+    quotes[quoteIndex] = QuotationModel(
+      id: quote.id,
+      quotationNumber: quote.quotationNumber,
+      serviceRequestId: quote.serviceRequestId,
+      createdBy: quote.createdBy,
+      createdAt: quote.createdAt,
+      updatedAt: DateTime.now(),
+      serviceRequest: quote.serviceRequest,
+      revisions: updatedRevisions,
+    );
+
+    return {
+      'revision_id': newRevId,
+      'revision_number': nextRevNum,
+      'copied_from_revision_id': latestRev?.id,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendQuotationRevision(String revisionId) async {
+    for (int qIdx = 0; qIdx < quotes.length; qIdx++) {
+      final quote = quotes[qIdx];
+      final revIndex = quote.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final targetRev = quote.revisions[revIndex];
+        final updatedRevisions = quote.revisions.map((r) {
+          if (r.id == revisionId) {
+            return QuotationRevisionModel(
+              id: r.id,
+              quotationId: r.quotationId,
+              revisionNumber: r.revisionNumber,
+              status: 'SENT',
+              subtotal: r.subtotal,
+              discount: r.discount,
+              tax: r.tax,
+              total: r.total,
+              notes: r.notes,
+              terms: r.terms,
+              createdAt: r.createdAt,
+              sentAt: DateTime.now(),
+              items: r.items,
+              changeRequests: r.changeRequests,
+            );
+          } else if (['SENT', 'VIEWED', 'CHANGE_REQUESTED', 'ACCEPTED'].contains(r.status)) {
+            return QuotationRevisionModel(
+              id: r.id,
+              quotationId: r.quotationId,
+              revisionNumber: r.revisionNumber,
+              status: 'SUPERSEDED',
+              subtotal: r.subtotal,
+              discount: r.discount,
+              tax: r.tax,
+              total: r.total,
+              notes: r.notes,
+              terms: r.terms,
+              createdAt: r.createdAt,
+              sentAt: r.sentAt,
+              items: r.items,
+              changeRequests: r.changeRequests,
+            );
+          }
+          return r;
+        }).toList();
+
+        quotes[qIdx] = QuotationModel(
+          id: quote.id,
+          quotationNumber: quote.quotationNumber,
+          serviceRequestId: quote.serviceRequestId,
+          createdBy: quote.createdBy,
+          createdAt: quote.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: quote.serviceRequest,
+          revisions: updatedRevisions,
+        );
+
+        return {'revision_id': targetRev.id, 'status': 'SENT'};
+      }
+    }
+    throw Exception('Revision not found: $revisionId');
+  }
+
+  @override
+  Future<void> updateDraftRevision({
+    required String revisionId,
+    required List<DraftQuotationItemInput> items,
+    double discount = 0,
+    double tax = 0,
+    String? notes,
+    String? terms,
+  }) async {
+    for (int qIdx = 0; qIdx < quotes.length; qIdx++) {
+      final quote = quotes[qIdx];
+      final revIndex = quote.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final subtotal = items.fold(0.0, (sum, it) => sum + it.lineTotal);
+        final total = (subtotal - discount + tax).clamp(0.0, double.infinity);
+
+        final newItems = items.asMap().entries.map((e) {
+          final idx = e.key;
+          final it = e.value;
+          return QuotationItemModel(
+            id: it.id ?? 'item-$revisionId-$idx',
+            quotationRevisionId: revisionId,
+            catalogueProductId: it.catalogueProductId,
+            name: it.name,
+            description: it.description,
+            quantity: it.quantity,
+            finalValue: it.finalValue,
+            lineTotal: it.lineTotal,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }).toList();
+
+        final updatedRev = QuotationRevisionModel(
+          id: revisionId,
+          quotationId: quote.id,
+          revisionNumber: quote.revisions[revIndex].revisionNumber,
+          status: quote.revisions[revIndex].status,
+          subtotal: subtotal,
+          discount: discount,
+          tax: tax,
+          total: total,
+          notes: notes,
+          terms: terms,
+          createdAt: quote.revisions[revIndex].createdAt,
+          items: newItems,
+          changeRequests: quote.revisions[revIndex].changeRequests,
+        );
+
+        final updatedRevisions = List<QuotationRevisionModel>.from(quote.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+
+        quotes[qIdx] = QuotationModel(
+          id: quote.id,
+          quotationNumber: quote.quotationNumber,
+          serviceRequestId: quote.serviceRequestId,
+          createdBy: quote.createdBy,
+          createdAt: quote.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: quote.serviceRequest,
+          revisions: updatedRevisions,
+        );
+        return;
+      }
+    }
+    throw Exception('Revision not found: $revisionId');
+  }
+
+  @override
+  Future<Map<String, dynamic>> respondChangeRequest({
+    required String changeRequestId,
+    required String status,
+    String? response,
+  }) async {
+    for (int qIdx = 0; qIdx < quotes.length; qIdx++) {
+      final quote = quotes[qIdx];
+      for (int rIdx = 0; rIdx < quote.revisions.length; rIdx++) {
+        final rev = quote.revisions[rIdx];
+        final crIndex = rev.changeRequests.indexWhere((cr) => cr.id == changeRequestId);
+        if (crIndex != -1) {
+          final oldCr = rev.changeRequests[crIndex];
+          final updatedCr = QuotationChangeRequestModel(
+            id: oldCr.id,
+            quotationRevisionId: oldCr.quotationRevisionId,
+            clientId: oldCr.clientId,
+            profileId: oldCr.profileId,
+            message: oldCr.message,
+            status: status,
+            adminResponse: response,
+            createdAt: oldCr.createdAt,
+            respondedAt: DateTime.now(),
+          );
+
+          final updatedCrs = List<QuotationChangeRequestModel>.from(rev.changeRequests);
+          updatedCrs[crIndex] = updatedCr;
+
+          final updatedRev = QuotationRevisionModel(
+            id: rev.id,
+            quotationId: rev.quotationId,
+            revisionNumber: rev.revisionNumber,
+            status: rev.status,
+            subtotal: rev.subtotal,
+            discount: rev.discount,
+            tax: rev.tax,
+            total: rev.total,
+            notes: rev.notes,
+            terms: rev.terms,
+            createdAt: rev.createdAt,
+            sentAt: rev.sentAt,
+            items: rev.items,
+            changeRequests: updatedCrs,
+          );
+
+          final updatedRevisions = List<QuotationRevisionModel>.from(quote.revisions);
+          updatedRevisions[rIdx] = updatedRev;
+
+          quotes[qIdx] = QuotationModel(
+            id: quote.id,
+            quotationNumber: quote.quotationNumber,
+            serviceRequestId: quote.serviceRequestId,
+            createdBy: quote.createdBy,
+            createdAt: quote.createdAt,
+            updatedAt: DateTime.now(),
+            serviceRequest: quote.serviceRequest,
+            revisions: updatedRevisions,
+          );
+
+          return {'change_request_id': changeRequestId, 'status': status};
+        }
+      }
+    }
+    throw Exception('Change request not found: $changeRequestId');
+  }
+
+  @override
+  Future<Map<String, dynamic>> closeQuotationRevision({
+    required String revisionId,
+    required String status,
+  }) async {
+    for (int qIdx = 0; qIdx < quotes.length; qIdx++) {
+      final quote = quotes[qIdx];
+      final revIndex = quote.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final updatedRev = QuotationRevisionModel(
+          id: revisionId,
+          quotationId: quote.id,
+          revisionNumber: quote.revisions[revIndex].revisionNumber,
+          status: status,
+          subtotal: quote.revisions[revIndex].subtotal,
+          discount: quote.revisions[revIndex].discount,
+          tax: quote.revisions[revIndex].tax,
+          total: quote.revisions[revIndex].total,
+          notes: quote.revisions[revIndex].notes,
+          terms: quote.revisions[revIndex].terms,
+          createdAt: quote.revisions[revIndex].createdAt,
+          items: quote.revisions[revIndex].items,
+          changeRequests: quote.revisions[revIndex].changeRequests,
+        );
+        final updatedRevisions = List<QuotationRevisionModel>.from(quote.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+
+        quotes[qIdx] = QuotationModel(
+          id: quote.id,
+          quotationNumber: quote.quotationNumber,
+          serviceRequestId: quote.serviceRequestId,
+          createdBy: quote.createdBy,
+          createdAt: quote.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: quote.serviceRequest,
+          revisions: updatedRevisions,
+        );
+
+        return {'revision_id': revisionId, 'status': status};
+      }
+    }
+    throw Exception('Revision not found: $revisionId');
+  }
+}
+

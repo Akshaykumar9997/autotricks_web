@@ -9,6 +9,7 @@ import 'package:autotricks/design_system/components/auto_select.dart';
 import 'package:autotricks/design_system/theme/app_theme.dart';
 import 'package:autotricks/features/auth/providers/auth_provider.dart';
 import 'package:autotricks/features/home/providers/home_provider.dart';
+import 'package:autotricks/features/quotes/providers/quotes_provider.dart';
 import 'package:autotricks/features/service_requests/providers/service_requests_provider.dart';
 import 'package:autotricks/routing/app_router.dart';
 import '../helpers/mock_repositories.dart';
@@ -16,6 +17,7 @@ import '../helpers/mock_repositories.dart';
 Widget createNavigationTestApp({
   MockClientVehicleRepository? clientVehicleRepo,
   MockServiceRequestsRepository? srRepo,
+  MockQuotationsRepository? quotesRepo,
 }) {
   final authRepo = MockAuthRepository()
     ..currentUser = const UserProfile(
@@ -31,6 +33,7 @@ Widget createNavigationTestApp({
       homeRepositoryProvider.overrideWithValue(MockHomeRepository()),
       serviceRequestsRepositoryProvider.overrideWithValue(srRepo ?? MockServiceRequestsRepository()),
       clientVehicleRepositoryProvider.overrideWithValue(clientVehicleRepo ?? MockClientVehicleRepository()),
+      quotationsRepositoryProvider.overrideWithValue(quotesRepo ?? MockQuotationsRepository()),
     ],
     child: Consumer(
       builder: (context, ref, _) {
@@ -283,6 +286,65 @@ void main() {
 
       // MUST return to Vehicles List
       expect(find.text('Vehicles'), findsOneWidget);
+    });
+
+    testWidgets('9. A12 -> A13 Quote Detail -> Back returns to A12 Quote List', (tester) async {
+      await tester.pumpWidget(createNavigationTestApp());
+      await tester.pumpAndSettle();
+
+      getRouter(tester).go('/admin/quotes');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quotations'), findsWidgets);
+
+      // Tap on first quote card (QT-2026-00012)
+      await tester.tap(find.text('QT-2026-00012'));
+      await tester.pumpAndSettle();
+
+      // Expect to be on Quote Detail Screen
+      expect(find.text('QUOTATION FILE'), findsOneWidget);
+
+      // Tap back button
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      // MUST return to Quote List
+      expect(find.text('Quotations'), findsWidgets);
+    });
+
+    testWidgets('10. A04 Service Request Detail -> A14 Create Quote -> Back returns to A04', (tester) async {
+      final srRepo = MockServiceRequestsRepository();
+      // Ensure sr-1 has UNDER_REVIEW and isLinked so Create Quote is available
+      final reviewSr = srRepo.items.first.copyWith(
+        status: 'UNDER_REVIEW',
+        clientId: 'c-1',
+        vehicleId: 'v-1',
+      );
+      srRepo.items[0] = reviewSr;
+
+      await tester.pumpWidget(createNavigationTestApp(srRepo: srRepo));
+      await tester.pumpAndSettle();
+
+      getRouter(tester).go('/admin/requests/sr-1');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Service Request'), findsOneWidget);
+
+      // Tap Create Quote button
+      final createQuoteBtn = find.widgetWithText(AutoButton, 'Create Quote');
+      expect(createQuoteBtn, findsOneWidget);
+      await tester.tap(createQuoteBtn);
+      await tester.pumpAndSettle();
+
+      // Verify on Create Quote Screen
+      expect(find.text('Create Quote'), findsOneWidget);
+
+      // Tap back button
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      // MUST return to Service Request
+      expect(find.text('Service Request'), findsOneWidget);
     });
   });
 }

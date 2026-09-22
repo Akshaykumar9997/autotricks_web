@@ -134,7 +134,9 @@ class ServiceRequestModel {
     return 'Periodic maintenance and diagnostic check.';
   }
 
-  bool get isLinked => clientId != null && vehicleId != null;
+  String? get effectiveClientId => clientId ?? client?.id;
+  String? get effectiveVehicleId => vehicleId ?? vehicle?.id;
+  bool get isLinked => effectiveClientId != null && effectiveVehicleId != null;
 
   ServiceRequestModel copyWith({
     String? id,

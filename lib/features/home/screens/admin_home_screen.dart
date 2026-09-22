@@ -354,7 +354,7 @@ class AdminHomeScreen extends ConsumerWidget {
             AutoCard(
               padding: const EdgeInsets.all(14),
               onTap: () {
-                AutoToast.showInfo(context, 'Quotes batch implementation active in next milestone.');
+                context.go('/admin/quotes?filter=SENT');
               },
               child: Row(
                 children: [

@@ -8,6 +8,11 @@ import '../features/clients/screens/client_detail_screen.dart';
 import '../features/clients/screens/client_list_screen.dart';
 import '../features/clients/screens/create_edit_client_screen.dart';
 import '../features/home/screens/admin_home_screen.dart';
+import '../features/quotes/screens/create_quote_screen.dart';
+import '../features/quotes/screens/edit_quote_revision_screen.dart';
+import '../features/quotes/screens/quote_change_requests_screen.dart';
+import '../features/quotes/screens/quote_detail_screen.dart';
+import '../features/quotes/screens/quote_list_screen.dart';
 import '../features/service_requests/screens/create_service_request_screen.dart';
 import '../features/service_requests/screens/service_request_detail_screen.dart';
 import '../features/service_requests/screens/service_requests_list_screen.dart';
@@ -56,6 +61,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/products',
             builder: (context, state) => const ProductsListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/quotes',
+            builder: (context, state) {
+              final filter = state.uri.queryParameters['filter'];
+              return QuoteListScreen(initialFilter: filter);
+            },
           ),
         ],
       ),
@@ -122,6 +134,43 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return CreateEditProductScreen(productId: id);
+        },
+      ),
+      // Quotations (A12–A16)
+      GoRoute(
+        path: '/admin/quotes/create',
+        builder: (context, state) {
+          final serviceRequestId = state.uri.queryParameters['serviceRequestId'];
+          return CreateQuoteScreen(serviceRequestId: serviceRequestId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/quotes/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return QuoteDetailScreen(quotationId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/quotes/:id/revisions/:revisionId/edit',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final revisionId = state.pathParameters['revisionId']!;
+          return EditQuoteRevisionScreen(
+            quotationId: id,
+            revisionId: revisionId,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/quotes/:id/change-requests',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final requestId = state.uri.queryParameters['requestId'];
+          return QuoteChangeRequestsScreen(
+            quotationId: id,
+            changeRequestId: requestId,
+          );
         },
       ),
     ],

@@ -132,10 +132,7 @@ class AdminShellScreen extends StatelessWidget {
               context.go('/admin/requests');
               break;
             case AdminNavTab.quotes:
-              AutoToast.showInfo(
-                context,
-                'Quotations module scheduled for Batch 3 (A12–A16).',
-              );
+              context.go('/admin/quotes');
               break;
             case AdminNavTab.more:
               _showMoreSheet(context);

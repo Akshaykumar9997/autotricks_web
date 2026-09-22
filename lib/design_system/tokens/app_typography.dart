@@ -109,4 +109,9 @@ class AppTypography {
         color: AppColors.textPrimary,
         height: 1.2,
       );
+
+  // Semantic heading aliases
+  static TextStyle get h1 => headlineLarge;
+  static TextStyle get h2 => headlineMedium;
+  static TextStyle get h3 => headlineSmall;
 }

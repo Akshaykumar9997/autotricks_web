@@ -85,6 +85,60 @@ class AutoTimeline extends StatelessWidget {
     );
   }
 
+  factory AutoTimeline.forQuotation({
+    required String currentStatus,
+    String? timestamp,
+  }) {
+    final statusList = [
+      'DRAFT',
+      'SENT',
+      'APPROVED',
+    ];
+
+    final upper = currentStatus.toUpperCase();
+    final effectiveIndex = upper == 'REJECTED' || upper == 'SUPERSEDED'
+        ? 1
+        : (statusList.contains(upper) ? statusList.indexOf(upper) : 0);
+
+    final icons = [
+      Icons.edit_note_outlined,
+      Icons.send_outlined,
+      Icons.check_circle_outline,
+    ];
+
+    final labels = [
+      'DRAFT CREATED',
+      'SENT TO CLIENT',
+      upper == 'REJECTED'
+          ? 'REJECTED'
+          : (upper == 'SUPERSEDED' ? 'SUPERSEDED' : 'APPROVED'),
+    ];
+
+    final subLabels = [
+      'Quotation revision 1 drafted${timestamp != null ? ' · $timestamp' : ''}',
+      'Awaiting client review',
+      upper == 'REJECTED'
+          ? 'Quotation was rejected'
+          : (upper == 'SUPERSEDED'
+              ? 'Superseded by new revision'
+              : 'Quotation approved by client'),
+    ];
+
+    return AutoTimeline(
+      steps: List.generate(statusList.length, (i) {
+        final isCompleted = i < effectiveIndex;
+        final isCurrent = i == effectiveIndex;
+        return AutoTimelineStep(
+          title: labels[i],
+          subtitle: (isCompleted || isCurrent) ? subLabels[i] : null,
+          icon: isCompleted ? Icons.check : icons[i],
+          isCompleted: isCompleted,
+          isCurrent: isCurrent,
+        );
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -123,17 +177,20 @@ class AutoTimeline extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          step.title,
-                          style: AppTypography.labelSmall.copyWith(
-                            color: step.isCurrent
-                                ? AppColors.primary
-                                : (step.isCompleted
-                                    ? AppColors.textPrimary
-                                    : AppColors.textMuted),
-                            fontWeight: step.isCurrent || step.isCompleted
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                        Expanded(
+                          child: Text(
+                            step.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.labelSmall.copyWith(
+                              color: step.isCurrent
+                                  ? AppColors.primary
+                                  : (step.isCompleted
+                                      ? AppColors.textPrimary
+                                      : AppColors.textMuted),
+                              fontWeight: step.isCurrent || step.isCompleted
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                           ),
                         ),
                         if (step.isCurrent)

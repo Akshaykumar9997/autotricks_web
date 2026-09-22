@@ -15,6 +15,7 @@ import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_radius.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import '../../../data/models/service_request_model.dart';
+import '../../quotes/providers/quotes_provider.dart';
 import '../providers/service_requests_provider.dart';
 
 /// A04 — Service Request Detail Screen conforming to approved Stitch A04.
@@ -40,6 +41,16 @@ class _ServiceRequestDetailScreenState
     final repo = ref.read(serviceRequestsRepositoryProvider);
 
     if (status == 'NEW') {
+      if (sr.effectiveClientId == null ||
+          sr.effectiveClientId!.isEmpty ||
+          sr.effectiveVehicleId == null ||
+          sr.effectiveVehicleId!.isEmpty) {
+        AutoToast.showError(
+          context,
+          'Please link a client and vehicle to the request before moving to Under Review.',
+        );
+        return;
+      }
       setState(() => _isProcessing = true);
       try {
         await repo.updateStatus(requestId: sr.id, status: 'UNDER_REVIEW');
@@ -54,11 +65,35 @@ class _ServiceRequestDetailScreenState
         if (mounted) setState(() => _isProcessing = false);
       }
     } else if (status == 'UNDER_REVIEW') {
-      AutoToast.showInfo(context, 'Creating Quotation for ${sr.requestNumber}');
-    } else if (status == 'QUOTATION_CREATED') {
-      AutoToast.showInfo(context, 'Reviewing Quotation draft.');
-    } else if (status == 'QUOTATION_SENT') {
-      AutoToast.showInfo(context, 'Opening sent Quotation.');
+      if (sr.effectiveClientId == null ||
+          sr.effectiveClientId!.isEmpty ||
+          sr.effectiveVehicleId == null ||
+          sr.effectiveVehicleId!.isEmpty) {
+        AutoToast.showError(
+          context,
+          'Quote creation requires an identified client and vehicle linked to the request.',
+        );
+        return;
+      }
+      context.push('/admin/quotes/create?serviceRequestId=${sr.id}');
+    } else if (status == 'QUOTATION_CREATED' || status == 'QUOTATION_SENT') {
+      setState(() => _isProcessing = true);
+      try {
+        final quote = await ref
+            .read(quotationsRepositoryProvider)
+            .getQuotationByServiceRequestId(sr.id);
+        if (mounted) {
+          if (quote != null) {
+            context.push('/admin/quotes/${quote.id}');
+          } else {
+            AutoToast.showInfo(context, 'No quotation found for this request.');
+          }
+        }
+      } catch (e) {
+        if (mounted) AutoToast.showError(context, 'Unable to open quotation: $e');
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
     } else if (status == 'APPROVED') {
       AutoToast.showInfo(context, 'Creating Service Job from approved quote.');
     } else if (status == 'CONVERTED_TO_JOB') {
@@ -254,7 +289,7 @@ class _ServiceRequestDetailScreenState
   }
 
   Widget _buildLinkingContext(ServiceRequestModel sr) {
-    if (!sr.isLinked && sr.status == 'NEW') {
+    if (!sr.isLinked) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -301,11 +336,15 @@ class _ServiceRequestDetailScreenState
         children: [
           const Icon(Icons.verified_user, color: AppColors.success, size: 17),
           const SizedBox(width: 8),
-          Text(
-            'Client & Vehicle Verified from Intake',
-            style: AppTypography.labelSmall.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              'Client & Vehicle Verified from Intake',
+              style: AppTypography.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

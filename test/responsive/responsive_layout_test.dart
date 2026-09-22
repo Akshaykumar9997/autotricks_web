@@ -8,6 +8,11 @@ import 'package:autotricks/features/clients/screens/client_detail_screen.dart';
 import 'package:autotricks/features/clients/screens/client_list_screen.dart';
 import 'package:autotricks/features/clients/screens/create_edit_client_screen.dart';
 import 'package:autotricks/features/home/screens/admin_home_screen.dart';
+import 'package:autotricks/features/quotes/screens/create_quote_screen.dart';
+import 'package:autotricks/features/quotes/screens/edit_quote_revision_screen.dart';
+import 'package:autotricks/features/quotes/screens/quote_change_requests_screen.dart';
+import 'package:autotricks/features/quotes/screens/quote_detail_screen.dart';
+import 'package:autotricks/features/quotes/screens/quote_list_screen.dart';
 import 'package:autotricks/features/service_requests/screens/create_service_request_screen.dart';
 import 'package:autotricks/features/service_requests/screens/service_request_detail_screen.dart';
 import 'package:autotricks/features/service_requests/screens/service_requests_list_screen.dart';
@@ -216,6 +221,91 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Edit Product'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('A12 QuoteListScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const QuoteListScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Quotations'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('A13 QuoteDetailScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const QuoteDetailScreen(quotationId: 'quote-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('QT-2026-00012'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('A14 CreateQuoteScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const CreateQuoteScreen(serviceRequestId: 'sr-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Create Quote'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('A15 EditQuoteRevisionScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const EditQuoteRevisionScreen(
+              quotationId: 'quote-1',
+              revisionId: 'rev-1',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit Quote Revision'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('A16 QuoteChangeRequestsScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const QuoteChangeRequestsScreen(
+              quotationId: 'quote-1',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Quote Change Requests'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }

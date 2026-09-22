@@ -29,7 +29,7 @@ class VehicleModel {
 
     return VehicleModel(
       id: json['id'] as String,
-      clientId: json['client_id'] as String,
+      clientId: json['client_id'] as String? ?? '',
       make: json['make'] as String? ?? '',
       model: json['model'] as String? ?? '',
       manufacturingYear: json['manufacturing_year'] as int?,
