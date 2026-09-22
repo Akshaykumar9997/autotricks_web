@@ -18,6 +18,13 @@ class ServiceRequestModel {
   final ClientModel? client;
   final VehicleModel? vehicle;
 
+  // Optional joined Service Job information
+  final String? jobId;
+  final String? jobNumber;
+  final String? jobStatus;
+  final DateTime? jobStartedAt;
+  final DateTime? jobCompletedAt;
+
   const ServiceRequestModel({
     required this.id,
     required this.requestNumber,
@@ -32,9 +39,22 @@ class ServiceRequestModel {
     required this.updatedAt,
     this.client,
     this.vehicle,
+    this.jobId,
+    this.jobNumber,
+    this.jobStatus,
+    this.jobStartedAt,
+    this.jobCompletedAt,
   });
 
   factory ServiceRequestModel.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? jobMap;
+    final rawJob = json['service_jobs'];
+    if (rawJob is List && rawJob.isNotEmpty) {
+      jobMap = rawJob.first as Map<String, dynamic>;
+    } else if (rawJob is Map<String, dynamic>) {
+      jobMap = rawJob;
+    }
+
     return ServiceRequestModel(
       id: json['id'] as String,
       requestNumber: json['request_number'] as String? ?? '',
@@ -58,6 +78,15 @@ class ServiceRequestModel {
           : null,
       vehicle: json['vehicles'] != null && json['vehicles'] is Map<String, dynamic>
           ? VehicleModel.fromJson(json['vehicles'] as Map<String, dynamic>)
+          : null,
+      jobId: jobMap?['id'] as String?,
+      jobNumber: jobMap?['job_number'] as String?,
+      jobStatus: jobMap?['status'] as String?,
+      jobStartedAt: jobMap?['started_at'] != null
+          ? DateTime.tryParse(jobMap!['started_at'].toString())
+          : null,
+      jobCompletedAt: jobMap?['completed_at'] != null
+          ? DateTime.tryParse(jobMap!['completed_at'].toString())
           : null,
     );
   }
@@ -120,18 +149,53 @@ class ServiceRequestModel {
     return '';
   }
 
+  /// Admin-facing description (falls back to adminNotes if present)
   String get serviceDescription {
     if (adminNotes != null && adminNotes!.isNotEmpty) {
       return adminNotes!;
     }
+    return customerServiceDescription;
+  }
+
+  /// Strictly customer-safe description: NEVER exposes admin_notes
+  String get customerServiceDescription {
     if (originalSubmission != null) {
       final desc = originalSubmission!['service_description'] ??
-          originalSubmission!['description'];
-      if (desc != null && desc.toString().isNotEmpty) {
-        return desc.toString();
+          originalSubmission!['description'] ??
+          originalSubmission!['requested_work'] ??
+          originalSubmission!['reported_symptom'] ??
+          originalSubmission!['notes'];
+      if (desc != null && desc.toString().trim().isNotEmpty) {
+        return desc.toString().trim();
       }
     }
-    return 'Periodic maintenance and diagnostic check.';
+    return 'Periodic maintenance and diagnostic inspection.';
+  }
+
+  /// Reported symptom (if provided by customer)
+  String? get reportedSymptom {
+    if (originalSubmission != null) {
+      final sym = originalSubmission!['reported_symptom'] ??
+          originalSubmission!['symptom'] ??
+          originalSubmission!['customer_notes'];
+      if (sym != null && sym.toString().trim().isNotEmpty) {
+        return sym.toString().trim();
+      }
+    }
+    return null;
+  }
+
+  /// List of requested item names
+  List<String> get requestedItemList {
+    if (originalSubmission != null) {
+      final items = originalSubmission!['requested_items'] ??
+          originalSubmission!['services'] ??
+          originalSubmission!['items'];
+      if (items is List) {
+        return items.map((e) => e.toString()).toList();
+      }
+    }
+    return [customerServiceDescription];
   }
 
   String? get effectiveClientId => clientId ?? client?.id;
@@ -152,6 +216,11 @@ class ServiceRequestModel {
     DateTime? updatedAt,
     ClientModel? client,
     VehicleModel? vehicle,
+    String? jobId,
+    String? jobNumber,
+    String? jobStatus,
+    DateTime? jobStartedAt,
+    DateTime? jobCompletedAt,
   }) {
     return ServiceRequestModel(
       id: id ?? this.id,
@@ -167,6 +236,11 @@ class ServiceRequestModel {
       updatedAt: updatedAt ?? this.updatedAt,
       client: client ?? this.client,
       vehicle: vehicle ?? this.vehicle,
+      jobId: jobId ?? this.jobId,
+      jobNumber: jobNumber ?? this.jobNumber,
+      jobStatus: jobStatus ?? this.jobStatus,
+      jobStartedAt: jobStartedAt ?? this.jobStartedAt,
+      jobCompletedAt: jobCompletedAt ?? this.jobCompletedAt,
     );
   }
 }

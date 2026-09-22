@@ -4,6 +4,19 @@ import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/catalogue/screens/create_edit_product_screen.dart';
 import '../features/catalogue/screens/products_list_screen.dart';
+import '../features/client/screens/client_accept_quote_screen.dart';
+import '../features/client/screens/client_home_screen.dart';
+import '../features/client/screens/client_login_screen.dart';
+import '../features/client/screens/client_profile_placeholder_screen.dart';
+import '../features/client/screens/client_quote_detail_screen.dart';
+import '../features/client/screens/client_quote_rejected_screen.dart';
+import '../features/client/screens/client_quotes_screen.dart';
+import '../features/client/screens/client_request_changes_screen.dart';
+import '../features/client/screens/client_service_request_detail_screen.dart';
+import '../features/client/screens/client_service_requests_screen.dart';
+import '../features/client/screens/client_shell_screen.dart';
+import '../features/client/screens/client_vehicle_detail_screen.dart';
+import '../features/client/screens/client_vehicles_screen.dart';
 import '../features/clients/screens/client_detail_screen.dart';
 import '../features/clients/screens/client_list_screen.dart';
 import '../features/clients/screens/create_edit_client_screen.dart';
@@ -25,12 +38,98 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: authState.isAuthenticated ? '/admin' : '/login',
+    initialLocation: authState.isAuthenticated
+        ? (authState.isAdmin ? '/admin' : '/client')
+        : '/login',
     routes: [
+      // Approved C01 Client Login
       GoRoute(
         path: '/login',
+        builder: (context, state) => const ClientLoginScreen(),
+      ),
+      // Approved A01 Admin Login
+      GoRoute(
+        path: '/admin/login',
         builder: (context, state) => const LoginScreen(),
       ),
+
+      // Client Portal Bottom Navigation Shell (C02, C03, C05, Profile)
+      ShellRoute(
+        builder: (context, state, child) {
+          return ClientShellScreen(
+            location: state.uri.path,
+            child: child,
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/client',
+            builder: (context, state) => const ClientHomeScreen(),
+          ),
+          GoRoute(
+            path: '/client/vehicles',
+            builder: (context, state) => const ClientVehiclesScreen(),
+          ),
+          GoRoute(
+            path: '/client/services',
+            builder: (context, state) => const ClientServiceRequestsScreen(),
+          ),
+          GoRoute(
+            path: '/client/profile',
+            builder: (context, state) => const ClientProfilePlaceholderScreen(),
+          ),
+        ],
+      ),
+
+      // Client Detail Subroutes (Pushed outside Shell to preserve back navigation stack)
+      GoRoute(
+        path: '/client/vehicles/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientVehicleDetailScreen(vehicleId: id);
+        },
+      ),
+      GoRoute(
+        path: '/client/services/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientServiceRequestDetailScreen(requestId: id);
+        },
+      ),
+      GoRoute(
+        path: '/client/quotes',
+        builder: (context, state) => const ClientQuotesScreen(),
+      ),
+      GoRoute(
+        path: '/client/quotes/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientQuoteDetailScreen(quotationId: id);
+        },
+      ),
+      GoRoute(
+        path: '/client/quotes/:id/changes',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientRequestChangesScreen(quotationId: id);
+        },
+      ),
+      GoRoute(
+        path: '/client/quotes/:id/accept',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientAcceptQuoteScreen(quotationId: id);
+        },
+      ),
+      GoRoute(
+        path: '/client/quotes/:id/rejected',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ClientQuoteRejectedScreen(quotationId: id);
+        },
+      ),
+
+      // Admin Portal Bottom Navigation Shell
       ShellRoute(
         builder: (context, state, child) {
           return AdminShellScreen(
@@ -71,7 +170,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // Service Requests
+      // Admin Service Requests
       GoRoute(
         path: '/admin/requests/create',
         builder: (context, state) => const CreateServiceRequestScreen(),
@@ -83,7 +182,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return ServiceRequestDetailScreen(requestId: id);
         },
       ),
-      // Clients CRM (A06–A08)
+      // Admin Clients CRM (A06–A08)
       GoRoute(
         path: '/admin/clients/create',
         builder: (context, state) => const CreateEditClientScreen(),
@@ -102,7 +201,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return CreateEditClientScreen(clientId: id);
         },
       ),
-      // Vehicles CRM (A09–A11)
+      // Admin Vehicles CRM (A09–A11)
       GoRoute(
         path: '/admin/vehicles/create',
         builder: (context, state) {
@@ -124,7 +223,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return CreateEditVehicleScreen(vehicleId: id);
         },
       ),
-      // Catalogue (A22–A23)
+      // Admin Catalogue (A22–A23)
       GoRoute(
         path: '/admin/products/create',
         builder: (context, state) => const CreateEditProductScreen(),
@@ -136,7 +235,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return CreateEditProductScreen(productId: id);
         },
       ),
-      // Quotations (A12–A16)
+      // Admin Quotations (A12–A16)
       GoRoute(
         path: '/admin/quotes/create',
         builder: (context, state) {
@@ -176,14 +275,43 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final isAuth = authState.isAuthenticated;
-      final isLoggingIn = state.uri.path == '/login';
+      final isAdmin = authState.isAdmin;
+      final isClient = authState.isClient;
+      final path = state.uri.path;
 
-      if (!isAuth && !isLoggingIn) {
+      final isClientLogin = path == '/login';
+      final isAdminLogin = path == '/admin/login';
+
+      // 1. Unauthenticated users
+      if (!isAuth) {
+        if (isClientLogin || isAdminLogin) {
+          return null;
+        }
+        // Redirect admin attempts to admin login, client attempts to client login
+        if (path.startsWith('/admin')) {
+          return '/admin/login';
+        }
         return '/login';
       }
 
-      if (isAuth && isLoggingIn) {
+      // 2. Authenticated user visiting login pages
+      if (isClientLogin || isAdminLogin) {
+        return isAdmin ? '/admin' : '/client';
+      }
+
+      // 3. Authenticated Admin attempting to visit Client portal
+      if (isAdmin && path.startsWith('/client')) {
         return '/admin';
+      }
+
+      // 4. Authenticated Client attempting to visit Admin portal
+      if (isClient && path.startsWith('/admin')) {
+        return '/client';
+      }
+
+      // 5. Root path
+      if (path == '/') {
+        return isAdmin ? '/admin' : '/client';
       }
 
       return null;

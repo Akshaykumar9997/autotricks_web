@@ -19,6 +19,17 @@ import 'package:autotricks/features/service_requests/screens/service_requests_li
 import 'package:autotricks/features/vehicles/screens/create_edit_vehicle_screen.dart';
 import 'package:autotricks/features/vehicles/screens/vehicle_detail_screen.dart';
 import 'package:autotricks/features/vehicles/screens/vehicle_list_screen.dart';
+import 'package:autotricks/features/client/screens/client_home_screen.dart';
+import 'package:autotricks/features/client/screens/client_login_screen.dart';
+import 'package:autotricks/features/client/screens/client_service_request_detail_screen.dart';
+import 'package:autotricks/features/client/screens/client_service_requests_screen.dart';
+import 'package:autotricks/features/client/screens/client_vehicle_detail_screen.dart';
+import 'package:autotricks/features/client/screens/client_vehicles_screen.dart';
+import 'package:autotricks/features/client/screens/client_quotes_screen.dart';
+import 'package:autotricks/features/client/screens/client_quote_detail_screen.dart';
+import 'package:autotricks/features/client/screens/client_request_changes_screen.dart';
+import 'package:autotricks/features/client/screens/client_accept_quote_screen.dart';
+import 'package:autotricks/features/client/screens/client_quote_rejected_screen.dart';
 import '../helpers/mock_repositories.dart';
 import '../helpers/test_wrapper.dart';
 
@@ -306,6 +317,175 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Quote Change Requests'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C01 ClientLoginScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(child: const ClientLoginScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C02 ClientHomeScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(child: const ClientHomeScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('CURRENT SERVICE REQUEST'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C03 ClientVehiclesScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(child: const ClientVehiclesScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('My Vehicles'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C04 ClientVehicleDetailScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientVehicleDetailScreen(
+              vehicleId: testVehicleId,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Vehicle Details'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C05 ClientServiceRequestsScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(child: const ClientServiceRequestsScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Service Requests'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C06 ClientServiceRequestDetailScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientServiceRequestDetailScreen(
+              requestId: 'sr-client-1',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Request Details'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C07 ClientQuotesScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(child: const ClientQuotesScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('My Quotes'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C08 ClientQuoteDetailScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientQuoteDetailScreen(quotationId: 'q-client-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('COST SUMMARY'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C09 ClientRequestChangesScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientRequestChangesScreen(quotationId: 'q-client-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Request Changes'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C10 ClientAcceptQuoteScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientAcceptQuoteScreen(quotationId: 'q-client-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Accept Quotation'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('C12 ClientQuoteRejectedScreen adapts cleanly to width ${width.toInt()}px without overflow', (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          createTestWidget(
+            child: const ClientQuoteRejectedScreen(quotationId: 'q-client-4'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Quotation Declined'), findsWidgets);
         expect(tester.takeException(), isNull);
       });
     }

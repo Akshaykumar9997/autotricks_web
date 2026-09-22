@@ -18,6 +18,7 @@ class AuthState {
 
   bool get isAuthenticated => profile != null;
   bool get isAdmin => profile?.isAdmin ?? false;
+  bool get isClient => profile?.isClient ?? false;
 
   AuthState copyWith({
     bool? isLoading,
@@ -37,6 +38,17 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() {
     final repo = ref.watch(authRepositoryProvider);
     final currentProfile = repo.getCurrentProfile();
+
+    // If a session exists, trigger async refresh in background to populate role & clientId from profiles table
+    if (currentProfile != null) {
+      Future.microtask(() async {
+        final refreshed = await repo.refreshCurrentProfile();
+        if (refreshed != null && refreshed != state.profile) {
+          state = state.copyWith(profile: refreshed);
+        }
+      });
+    }
+
     return AuthState(profile: currentProfile);
   }
 

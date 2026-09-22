@@ -114,4 +114,15 @@ class AppTypography {
   static TextStyle get h1 => headlineLarge;
   static TextStyle get h2 => headlineMedium;
   static TextStyle get h3 => headlineSmall;
+
+  // Stitch & Flutter convenience aliases
+  static TextStyle get headlineLg => headlineLarge;
+  static TextStyle get headlineMd => headlineMedium;
+  static TextStyle get headlineSm => headlineSmall;
+  static TextStyle get bodyLg => bodyLarge;
+  static TextStyle get bodyLgEmphasis => bodyLargeEmphasis;
+  static TextStyle get bodyMd => bodyMedium;
+  static TextStyle get bodyMdEmphasis => bodyMediumEmphasis;
+  static TextStyle get labelMd => labelMedium;
+  static TextStyle get labelSm => labelSmall;
 }

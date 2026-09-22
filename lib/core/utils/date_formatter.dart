@@ -26,4 +26,14 @@ class DateFormatter {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}, $hour:$minute';
   }
+
+  static String formatDate(DateTime dateTime) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
+  }
+
+  static String formatRelative(DateTime dateTime) => timeAgo(dateTime);
 }

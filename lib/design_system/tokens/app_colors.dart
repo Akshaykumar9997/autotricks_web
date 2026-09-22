@@ -8,6 +8,8 @@ class AppColors {
   static const Color background = Color(0xFF0B0D0F);
   static const Color surface1 = Color(0xFF14171D);
   static const Color surface2 = Color(0xFF1C2129);
+  static const Color surfaceContainer = Color(0xFF1E2022);
+  static const Color surfaceContainerHigh = Color(0xFF282A2C);
   static const Color border = Color(0xFF242A35);
   static const Color borderSubtle = Color(0xFF242A35);
 

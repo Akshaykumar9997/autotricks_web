@@ -9,6 +9,7 @@ import 'package:autotricks/data/models/service_job_summary_model.dart';
 import 'package:autotricks/data/models/service_request_model.dart';
 import 'package:autotricks/data/models/vehicle_model.dart';
 import 'package:autotricks/data/repositories/auth_repository.dart';
+import 'package:autotricks/data/repositories/client_portal_repository.dart';
 import 'package:autotricks/data/repositories/client_vehicle_repository.dart';
 import 'package:autotricks/data/repositories/home_repository.dart';
 import 'package:autotricks/data/repositories/products_repository.dart';
@@ -26,6 +27,9 @@ class MockAuthRepository implements AuthRepository {
 
   @override
   UserProfile? getCurrentProfile() => currentUser;
+
+  @override
+  Future<UserProfile?> refreshCurrentProfile() async => currentUser;
 
   @override
   Future<UserProfile> signIn({
@@ -1387,4 +1391,610 @@ class MockQuotationsRepository implements QuotationsRepository {
     throw Exception('Revision not found: $revisionId');
   }
 }
+
+class MockClientPortalRepository implements ClientPortalRepository {
+  ClientModel? clientProfile = const ClientModel(
+    id: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+    fullName: 'Rahul Kumar',
+    phone: '+91 98450 12890',
+    email: 'rahul.kumar@gmail.com',
+    address: '12, MG Road, Indiranagar',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    pincode: '560038',
+    isActive: true,
+  );
+
+  List<VehicleModel> vehicles = [
+    const VehicleModel(
+      id: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      make: 'Honda',
+      model: 'City',
+      manufacturingYear: 2022,
+      registrationNumber: 'KA-01-MJ-4412',
+      chassisNumber: 'MAKGM2656N1028492',
+    ),
+    const VehicleModel(
+      id: 'v-client-2',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      make: 'Hyundai',
+      model: 'Creta',
+      manufacturingYear: 2021,
+      registrationNumber: 'KA-05-NB-7821',
+      chassisNumber: 'MALH351BLM1098234',
+    ),
+  ];
+
+  late List<ServiceRequestModel> serviceRequests = [
+    ServiceRequestModel(
+      id: 'sr-client-1',
+      requestNumber: 'SR-2026-00021',
+      source: 'PORTAL',
+      status: 'UNDER_REVIEW',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      vehicleId: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+      originalSubmission: {
+        'requested_items': [
+          'Periodic Maintenance Service (PMS)',
+          'Front brake inspection & rotor check',
+        ],
+        'reported_symptom':
+            'Slight squeaking sound heard from front wheels when braking at low speeds.',
+        'description': 'Comprehensive 40-point vehicle wellness inspection',
+      },
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      updatedAt: DateTime.now().subtract(const Duration(minutes: 12)),
+      vehicle: const VehicleModel(
+        id: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+        chassisNumber: 'MAKGM2656N1028492',
+      ),
+    ),
+    ServiceRequestModel(
+      id: 'sr-client-2',
+      requestNumber: 'SR-2026-00022',
+      source: 'PORTAL',
+      status: 'CONVERTED_TO_JOB',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      vehicleId: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+      jobId: 'job-client-2',
+      jobNumber: 'JOB-2026-0012',
+      jobStatus: 'WORK_IN_PROGRESS',
+      originalSubmission: {
+        'requested_items': ['Wheel alignment & balancing'],
+        'description': 'Wheel alignment & 4-wheel balancing',
+      },
+      createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      updatedAt: DateTime.now().subtract(const Duration(hours: 4)),
+      vehicle: const VehicleModel(
+        id: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+        chassisNumber: 'MAKGM2656N1028492',
+      ),
+    ),
+    ServiceRequestModel(
+      id: 'sr-client-3',
+      requestNumber: 'SR-2026-00023',
+      source: 'PORTAL',
+      status: 'CONVERTED_TO_JOB',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      vehicleId: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+      jobId: 'job-client-3',
+      jobNumber: 'JOB-2026-0008',
+      jobStatus: 'COMPLETED',
+      originalSubmission: {
+        'requested_items': ['Synthetic oil change & filter replacement'],
+        'description': 'Routine oil service',
+      },
+      createdAt: DateTime.now().subtract(const Duration(days: 14)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 12)),
+      vehicle: const VehicleModel(
+        id: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+        chassisNumber: 'MAKGM2656N1028492',
+      ),
+    ),
+    ServiceRequestModel(
+      id: 'sr-client-4',
+      requestNumber: 'SR-2026-00024',
+      source: 'PORTAL',
+      status: 'CANCELLED',
+      clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+      vehicleId: 'v-client-2',
+      originalSubmission: {
+        'requested_items': ['AC cooling check'],
+        'description': 'AC cooling check',
+      },
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 29)),
+      vehicle: const VehicleModel(
+        id: 'v-client-2',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        make: 'Hyundai',
+        model: 'Creta',
+        manufacturingYear: 2021,
+        registrationNumber: 'KA-05-NB-7821',
+        chassisNumber: 'MALH351BLM1098234',
+      ),
+    ),
+  ];
+
+  @override
+  Future<ClientModel?> fetchClientProfile() async => clientProfile;
+
+  @override
+  Future<List<VehicleModel>> fetchClientVehicles() async => vehicles;
+
+  @override
+  Future<VehicleModel> getVehicleById(String vehicleId) async {
+    final match = vehicles.where((v) => v.id == vehicleId).toList();
+    if (match.isEmpty) {
+      throw Exception('Vehicle not found: $vehicleId');
+    }
+    return match.first;
+  }
+
+  @override
+  Future<List<ServiceRequestModel>> fetchClientServiceRequests() async =>
+      serviceRequests;
+
+  @override
+  Future<List<ServiceRequestModel>> fetchServiceRequestsForVehicle(
+      String vehicleId) async {
+    return serviceRequests.where((sr) => sr.vehicleId == vehicleId).toList();
+  }
+
+  @override
+  Future<ServiceRequestModel> getServiceRequestById(String requestId) async {
+    final match = serviceRequests.where((sr) => sr.id == requestId).toList();
+    if (match.isEmpty) {
+      throw Exception('Service request not found: $requestId');
+    }
+    return match.first;
+  }
+
+  late List<QuotationModel> quotations = [
+    QuotationModel(
+      id: 'q-client-1',
+      quotationNumber: 'QT-2026-00037',
+      serviceRequestId: 'sr-client-quote-ready',
+      createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
+      serviceRequest: ServiceRequestModel(
+        id: 'sr-client-quote-ready',
+        requestNumber: 'SR-2026-00075',
+        source: 'PORTAL',
+        status: 'QUOTATION_SENT',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        vehicleId: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+        updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
+        vehicle: vehicles[0],
+      ),
+      revisions: [
+        QuotationRevisionModel(
+          id: 'rev-client-1',
+          quotationId: 'q-client-1',
+          revisionNumber: 1,
+          status: 'SENT',
+          subtotal: 18000,
+          discount: 0,
+          tax: 3000,
+          total: 21000,
+          notes: 'Standard OEM parts will be installed.',
+          terms: 'Standard AutoTricks warranty applies.',
+          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+          sentAt: DateTime.now().subtract(const Duration(hours: 1)),
+          items: [
+            QuotationItemModel(
+              id: 'item-1',
+              quotationRevisionId: 'rev-client-1',
+              name: 'Engine Oil & Filter Replacement',
+              description: 'Full synthetic 5W-30 engine oil with OEM filter',
+              quantity: 1,
+              finalValue: 5500,
+              lineTotal: 5500,
+              createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+              updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
+            ),
+            QuotationItemModel(
+              id: 'item-2',
+              quotationRevisionId: 'rev-client-1',
+              name: 'Front Brake Pad Set & Rotor Skimming',
+              description: 'OEM ceramic pads with precision rotor resurfacing',
+              quantity: 1,
+              finalValue: 12500,
+              lineTotal: 12500,
+              createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+              updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
+            ),
+          ],
+        ),
+      ],
+    ),
+    QuotationModel(
+      id: 'q-client-2',
+      quotationNumber: 'QT-2026-00038',
+      serviceRequestId: 'sr-client-2',
+      createdAt: DateTime.now().subtract(const Duration(days: 2)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+      serviceRequest: serviceRequests[1],
+      revisions: [
+        QuotationRevisionModel(
+          id: 'rev-client-2',
+          quotationId: 'q-client-2',
+          revisionNumber: 1,
+          status: 'CHANGE_REQUESTED',
+          subtotal: 7500,
+          discount: 0,
+          tax: 1000,
+          total: 8500,
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+          sentAt: DateTime.now().subtract(const Duration(days: 2)),
+          items: [
+            QuotationItemModel(
+              id: 'item-3',
+              quotationRevisionId: 'rev-client-2',
+              name: 'Wheel Alignment & 4-Wheel Balancing',
+              description: 'Laser alignment and dynamic balancing',
+              quantity: 1,
+              finalValue: 7500,
+              lineTotal: 7500,
+              createdAt: DateTime.now().subtract(const Duration(days: 2)),
+              updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+            ),
+          ],
+          changeRequests: [
+            QuotationChangeRequestModel(
+              id: 'cr-1',
+              quotationRevisionId: 'rev-client-2',
+              clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+              profileId: 'prof-client-1',
+              message: 'Please exclude tyre rotation as it was done recently.',
+              status: 'PENDING',
+              createdAt: DateTime.now().subtract(const Duration(days: 1)),
+            ),
+          ],
+        ),
+      ],
+    ),
+    QuotationModel(
+      id: 'q-client-3',
+      quotationNumber: 'QT-2026-00036',
+      serviceRequestId: 'sr-client-3',
+      createdAt: DateTime.now().subtract(const Duration(days: 10)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 9)),
+      serviceRequest: serviceRequests[2],
+      revisions: [
+        QuotationRevisionModel(
+          id: 'rev-client-3',
+          quotationId: 'q-client-3',
+          revisionNumber: 1,
+          status: 'ACCEPTED',
+          subtotal: 12000,
+          discount: 0,
+          tax: 2000,
+          total: 14000,
+          createdAt: DateTime.now().subtract(const Duration(days: 10)),
+          sentAt: DateTime.now().subtract(const Duration(days: 10)),
+          acceptedAt: DateTime.now().subtract(const Duration(days: 9)),
+          acceptanceConsentText:
+              'I confirm that I have reviewed Revision 1 and agree to the quoted scope, pricing, and terms.',
+          items: [
+            QuotationItemModel(
+              id: 'item-4',
+              quotationRevisionId: 'rev-client-3',
+              name: 'Comprehensive Periodic Maintenance',
+              description: 'Scheduled PMS package',
+              quantity: 1,
+              finalValue: 12000,
+              lineTotal: 12000,
+              createdAt: DateTime.now().subtract(const Duration(days: 10)),
+              updatedAt: DateTime.now().subtract(const Duration(days: 10)),
+            ),
+          ],
+        ),
+      ],
+    ),
+    QuotationModel(
+      id: 'q-client-4',
+      quotationNumber: 'QT-2026-00035',
+      serviceRequestId: 'sr-client-4',
+      createdAt: DateTime.now().subtract(const Duration(days: 25)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 24)),
+      serviceRequest: serviceRequests[3],
+      revisions: [
+        QuotationRevisionModel(
+          id: 'rev-client-4',
+          quotationId: 'q-client-4',
+          revisionNumber: 1,
+          status: 'REJECTED',
+          subtotal: 4500,
+          discount: 0,
+          tax: 500,
+          total: 5000,
+          createdAt: DateTime.now().subtract(const Duration(days: 25)),
+          sentAt: DateTime.now().subtract(const Duration(days: 25)),
+          rejectedAt: DateTime.now().subtract(const Duration(days: 24)),
+          rejectionReason: 'Postponed due to personal schedule.',
+          items: [
+            QuotationItemModel(
+              id: 'item-5',
+              quotationRevisionId: 'rev-client-4',
+              name: 'AC Gas Refill & Filter Replacement',
+              description: 'R134a refrigerant charge with cabin air filter',
+              quantity: 1,
+              finalValue: 4500,
+              lineTotal: 4500,
+              createdAt: DateTime.now().subtract(const Duration(days: 25)),
+              updatedAt: DateTime.now().subtract(const Duration(days: 25)),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ];
+
+  QuotationModel _sanitizeClientQuotation(QuotationModel quote) {
+    final clientRevisions = quote.revisions.where((r) => !r.isDraft).toList()
+      ..sort((a, b) => b.revisionNumber.compareTo(a.revisionNumber));
+    return QuotationModel(
+      id: quote.id,
+      quotationNumber: quote.quotationNumber,
+      serviceRequestId: quote.serviceRequestId,
+      createdBy: quote.createdBy,
+      createdAt: quote.createdAt,
+      updatedAt: quote.updatedAt,
+      serviceRequest: quote.serviceRequest,
+      revisions: clientRevisions,
+    );
+  }
+
+  @override
+  Future<List<QuotationModel>> fetchClientQuotations() async {
+    return quotations
+        .map(_sanitizeClientQuotation)
+        .where((q) => q.revisions.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<QuotationModel> getQuotationById(String id) async {
+    final match = quotations.where((q) => q.id == id).toList();
+    if (match.isEmpty) {
+      throw Exception('Quotation not found: $id');
+    }
+    return _sanitizeClientQuotation(match.first);
+  }
+
+  @override
+  Future<QuotationModel?> getQuotationByServiceRequestId(String serviceRequestId) async {
+    final match = quotations.where((q) => q.serviceRequestId == serviceRequestId).toList();
+    if (match.isEmpty) return null;
+    final sanitized = _sanitizeClientQuotation(match.first);
+    return sanitized.revisions.isNotEmpty ? sanitized : null;
+  }
+
+  @override
+  Future<void> markQuotationViewed(String revisionId) async {
+    for (int i = 0; i < quotations.length; i++) {
+      final q = quotations[i];
+      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final rev = q.revisions[revIndex];
+        if (rev.status == 'SENT') {
+          final updatedRev = QuotationRevisionModel(
+            id: rev.id,
+            quotationId: rev.quotationId,
+            revisionNumber: rev.revisionNumber,
+            status: 'VIEWED',
+            subtotal: rev.subtotal,
+            discount: rev.discount,
+            tax: rev.tax,
+            total: rev.total,
+            notes: rev.notes,
+            terms: rev.terms,
+            createdBy: rev.createdBy,
+            createdAt: rev.createdAt,
+            sentAt: rev.sentAt,
+            viewedAt: DateTime.now(),
+            acceptedAt: rev.acceptedAt,
+            acceptedByProfileId: rev.acceptedByProfileId,
+            acceptanceConsentText: rev.acceptanceConsentText,
+            rejectedAt: rev.rejectedAt,
+            rejectionReason: rev.rejectionReason,
+            items: rev.items,
+            changeRequests: rev.changeRequests,
+          );
+          final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
+          updatedRevisions[revIndex] = updatedRev;
+          quotations[i] = QuotationModel(
+            id: q.id,
+            quotationNumber: q.quotationNumber,
+            serviceRequestId: q.serviceRequestId,
+            createdBy: q.createdBy,
+            createdAt: q.createdAt,
+            updatedAt: DateTime.now(),
+            serviceRequest: q.serviceRequest,
+            revisions: updatedRevisions,
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> requestQuotationChange({
+    required String revisionId,
+    required String message,
+  }) async {
+    for (int i = 0; i < quotations.length; i++) {
+      final q = quotations[i];
+      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final rev = q.revisions[revIndex];
+        final newCr = QuotationChangeRequestModel(
+          id: 'cr-${DateTime.now().millisecondsSinceEpoch}',
+          quotationRevisionId: revisionId,
+          clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+          profileId: 'prof-client-1',
+          message: message,
+          status: 'PENDING',
+          createdAt: DateTime.now(),
+        );
+        final updatedRev = QuotationRevisionModel(
+          id: rev.id,
+          quotationId: rev.quotationId,
+          revisionNumber: rev.revisionNumber,
+          status: 'CHANGE_REQUESTED',
+          subtotal: rev.subtotal,
+          discount: rev.discount,
+          tax: rev.tax,
+          total: rev.total,
+          notes: rev.notes,
+          terms: rev.terms,
+          createdBy: rev.createdBy,
+          createdAt: rev.createdAt,
+          sentAt: rev.sentAt,
+          viewedAt: rev.viewedAt,
+          acceptedAt: rev.acceptedAt,
+          acceptedByProfileId: rev.acceptedByProfileId,
+          acceptanceConsentText: rev.acceptanceConsentText,
+          rejectedAt: rev.rejectedAt,
+          rejectionReason: rev.rejectionReason,
+          items: rev.items,
+          changeRequests: [newCr, ...rev.changeRequests],
+        );
+        final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+        quotations[i] = QuotationModel(
+          id: q.id,
+          quotationNumber: q.quotationNumber,
+          serviceRequestId: q.serviceRequestId,
+          createdBy: q.createdBy,
+          createdAt: q.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: q.serviceRequest,
+          revisions: updatedRevisions,
+        );
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> acceptQuotationRevision({
+    required String revisionId,
+    required String consentText,
+  }) async {
+    for (int i = 0; i < quotations.length; i++) {
+      final q = quotations[i];
+      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final rev = q.revisions[revIndex];
+        final updatedRev = QuotationRevisionModel(
+          id: rev.id,
+          quotationId: rev.quotationId,
+          revisionNumber: rev.revisionNumber,
+          status: 'ACCEPTED',
+          subtotal: rev.subtotal,
+          discount: rev.discount,
+          tax: rev.tax,
+          total: rev.total,
+          notes: rev.notes,
+          terms: rev.terms,
+          createdBy: rev.createdBy,
+          createdAt: rev.createdAt,
+          sentAt: rev.sentAt,
+          viewedAt: rev.viewedAt,
+          acceptedAt: DateTime.now(),
+          acceptedByProfileId: 'prof-client-1',
+          acceptanceConsentText: consentText,
+          rejectedAt: null,
+          rejectionReason: null,
+          items: rev.items,
+          changeRequests: rev.changeRequests,
+        );
+        final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+        quotations[i] = QuotationModel(
+          id: q.id,
+          quotationNumber: q.quotationNumber,
+          serviceRequestId: q.serviceRequestId,
+          createdBy: q.createdBy,
+          createdAt: q.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: q.serviceRequest,
+          revisions: updatedRevisions,
+        );
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> rejectQuotationRevision({
+    required String revisionId,
+    required String reason,
+  }) async {
+    for (int i = 0; i < quotations.length; i++) {
+      final q = quotations[i];
+      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final rev = q.revisions[revIndex];
+        final updatedRev = QuotationRevisionModel(
+          id: rev.id,
+          quotationId: rev.quotationId,
+          revisionNumber: rev.revisionNumber,
+          status: 'REJECTED',
+          subtotal: rev.subtotal,
+          discount: rev.discount,
+          tax: rev.tax,
+          total: rev.total,
+          notes: rev.notes,
+          terms: rev.terms,
+          createdBy: rev.createdBy,
+          createdAt: rev.createdAt,
+          sentAt: rev.sentAt,
+          viewedAt: rev.viewedAt,
+          acceptedAt: null,
+          acceptedByProfileId: null,
+          acceptanceConsentText: null,
+          rejectedAt: DateTime.now(),
+          rejectionReason: reason,
+          items: rev.items,
+          changeRequests: rev.changeRequests,
+        );
+        final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+        quotations[i] = QuotationModel(
+          id: q.id,
+          quotationNumber: q.quotationNumber,
+          serviceRequestId: q.serviceRequestId,
+          createdBy: q.createdBy,
+          createdAt: q.createdAt,
+          updatedAt: DateTime.now(),
+          serviceRequest: q.serviceRequest,
+          revisions: updatedRevisions,
+        );
+        return;
+      }
+    }
+  }
+}
+
 

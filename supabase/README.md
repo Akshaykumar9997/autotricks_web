@@ -20,11 +20,15 @@
 | `tests/06_link_hardening_tests.sql` | Service request linking invariant tests (8 PASS / 0 FAIL) |
 | `tests/e2e_business_rules.sql` | Consolidated master test suite (278 PASS / 0 FAIL) |
 
-## Admin Accounts
+## Test & Production Accounts
 
-The initial admin accounts have been bootstrapped safely via Supabase Auth invitations with `ADMIN` role (`client_id = NULL`):
-- `akshaykumar07.m@gmail.com` (Akshay Kumar)
-- `autotricks08@gmail.com` (AutoTricks Admin)
+### 1. Admin Accounts (`role = ADMIN`, `client_id = NULL`)
+- `autotricks08@gmail.com` / `Admin@123` (AutoTricks Admin)
+- `akshaykumar07.m@gmail.com` / `Admin@123` (Akshay Kumar)
+
+### 2. Client Portal Test Accounts (`role = CLIENT`, linked to `client_id`)
+- `rahul.kumar@gmail.com` / `Client@12345` (Client ID: `2bd5d7fb-3b55-48b1-931f-69896d3f0838`, Vehicle: Honda City `KA-01-MJ-4412`)
+- `arun.prakash@gmail.com` / `Client@12345` (Client ID: `6282f38a-1455-4a94-a839-3e70587f473f`, Vehicle: Hyundai Creta `KA-05-NB-7821`)
 
 All subsequent users (both Client portal users and additional Admins) are provisioned through the `admin-invite-user` Edge Function.
 

@@ -21,6 +21,8 @@ class AppSpacing {
   static const double lg = 16.0;
   static const double xl = 24.0;
   static const double xxl = 32.0;
+  static const double margin = 16.0;
+  static const double gutter = 16.0;
 
   // Standard EdgeInsets
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: 16.0);

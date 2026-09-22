@@ -123,3 +123,32 @@ flutter analyze
 flutter test
 ```
 
+---
+
+## Test & Development Accounts / Credentials
+
+The following credentials are provided for testing both the Workshop Admin Portal and the Client Garage Portal:
+
+### 1. Workshop Admin Portal (`/login`)
+
+| User / Role | Email / Login | Password | Role | Notes |
+|---|---|---|:---:|---|
+| **AutoTricks Admin** | `autotricks08@gmail.com` | `Admin@123` | `ADMIN` | Default pre-filled credentials on `/login` |
+| **Akshay Kumar** | `akshaykumar07.m@gmail.com` | `Admin@123` | `ADMIN` | Workshop administrative account |
+
+- **Login Route**: `/login` (Admin Portal)
+- **Features Available**: Dashboard analytics, Service Requests management, Product Catalogue, Vehicle registry, Multi-revision Quotation creation & dispatch, Job conversion.
+
+---
+
+### 2. Client Garage Portal (`/client/login`)
+
+| Client Name | Email / Login | Password | Client ID | Associated Test Data |
+|---|---|---|---|---|
+| **Rahul Kumar** | `rahul.kumar@gmail.com` | `Client@12345` | `2bd5d7fb-3b55-48b1-931f-69896d3f0838` | Honda City (`KA-01-MJ-4412`), Quotation `QT-2026-00037` (`SENT`), Service Request `SR-2026-00075` |
+| **Arun Prakash** | `arun.prakash@gmail.com` | `Client@12345` | `6282f38a-1455-4a94-a839-3e70587f473f` | Hyundai Creta (`KA-05-NB-7821`), Service Requests |
+
+- **Login Route**: `/client/login` (Client Garage Portal)
+- **Features Available**: Client Home Dashboard, My Vehicles & Specs, Service Requests Tracking, My Quotes (`C07`), Quote Detail (`C08`), Request Changes (`C09`), Accept Quote + Legal Consent (`C10`), Declined Estimates (`C12`).
+
+
