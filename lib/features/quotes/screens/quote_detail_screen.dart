@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/pdf_launcher_helper.dart';
 import '../../../data/models/quotation_model.dart';
 import '../../../design_system/components/auto_app_bar.dart';
 import '../../../design_system/components/auto_badge.dart';
@@ -18,7 +19,7 @@ import '../../../design_system/tokens/app_typography.dart';
 import '../providers/quotes_provider.dart';
 
 /// A13 — Quote Detail Screen conforming to approved Stitch A13 and user corrections.
-class QuoteDetailScreen extends ConsumerWidget {
+class QuoteDetailScreen extends ConsumerStatefulWidget {
   final String quotationId;
 
   const QuoteDetailScreen({
@@ -27,8 +28,15 @@ class QuoteDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final quoteAsync = ref.watch(quotationDetailProvider(quotationId));
+  ConsumerState<QuoteDetailScreen> createState() => _QuoteDetailScreenState();
+}
+
+class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
+  String? _selectedRevisionId;
+
+  @override
+  Widget build(BuildContext context) {
+    final quoteAsync = ref.watch(quotationDetailProvider(widget.quotationId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,7 +54,7 @@ class QuoteDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: AppColors.textSecondary, size: 20),
-            onPressed: () => ref.invalidate(quotationDetailProvider(quotationId)),
+            onPressed: () => ref.invalidate(quotationDetailProvider(widget.quotationId)),
           ),
         ],
       ),
@@ -71,20 +79,33 @@ class QuoteDetailScreen extends ConsumerWidget {
           child: AutoErrorState(
             title: 'Unable to load quote details',
             message: err.toString(),
-            onRetry: () => ref.invalidate(quotationDetailProvider(quotationId)),
+            onRetry: () => ref.invalidate(quotationDetailProvider(widget.quotationId)),
           ),
         ),
       ),
       bottomNavigationBar: quoteAsync.maybeWhen(
-        data: (quote) => _buildBottomActionBar(context, ref, quote),
+        data: (quote) {
+          final activeRevision = quote.revisions.isNotEmpty
+              ? quote.revisions.firstWhere(
+                  (r) => r.id == _selectedRevisionId,
+                  orElse: () => quote.currentRevision ?? quote.revisions.first,
+                )
+              : quote.currentRevision;
+          return _buildBottomActionBar(context, ref, quote, activeRevision);
+        },
         orElse: () => const SizedBox.shrink(),
       ),
     );
   }
 
   Widget _buildContent(BuildContext context, WidgetRef ref, QuotationModel quote) {
-    final revision = quote.currentRevision;
-    final isDraft = revision?.isDraft ?? false;
+    final activeRevision = quote.revisions.isNotEmpty
+        ? quote.revisions.firstWhere(
+            (r) => r.id == _selectedRevisionId,
+            orElse: () => quote.currentRevision ?? quote.revisions.first,
+          )
+        : quote.currentRevision;
+    final isDraft = activeRevision?.isDraft ?? false;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
@@ -92,7 +113,7 @@ class QuoteDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Quotation File Header & Status
-          _buildQuotationHeader(quote, revision),
+          _buildQuotationHeader(quote, activeRevision),
           const SizedBox(height: 16),
 
           // 2. Customer & Vehicle Intelligence Card
@@ -100,50 +121,56 @@ class QuoteDetailScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // 3. Change Request Notice Banner (with direct review action)
-          if (revision != null && revision.changeRequests.isNotEmpty) ...[
-            _buildChangeRequestBanner(context, quote, revision.changeRequests.first),
+          if (activeRevision != null && activeRevision.changeRequests.isNotEmpty) ...[
+            _buildChangeRequestBanner(context, quote, activeRevision.changeRequests.first),
             const SizedBox(height: 16),
           ],
 
           // 4. Draft Context Notice (with direct edit action)
-          if (isDraft && revision != null) ...[
-            _buildDraftNotice(context, quote, revision),
+          if (isDraft && activeRevision != null) ...[
+            _buildDraftNotice(context, quote, activeRevision),
             const SizedBox(height: 16),
           ],
 
           // 5. Quoted Line Items (Historical Snapshot)
-          _buildQuotedScopeCard(revision),
+          _buildQuotedScopeCard(activeRevision),
           const SizedBox(height: 16),
 
           // 6. Pricing Summary Matrix
-          _buildPricingSummaryCard(revision),
+          _buildPricingSummaryCard(activeRevision),
           const SizedBox(height: 16),
 
+          // 6b. Customer Acceptance & Digital Signature Card
+          if (activeRevision != null && activeRevision.isSigned) ...[
+            _buildCustomerSignatureCard(context, ref, quote, activeRevision),
+            const SizedBox(height: 16),
+          ],
+
           // 7. Notes & Terms
-          if (revision != null &&
-              ((revision.notes != null && revision.notes!.isNotEmpty) ||
-                  (revision.terms != null && revision.terms!.isNotEmpty))) ...[
-            _buildNotesAndTermsCard(revision),
+          if (activeRevision != null &&
+              ((activeRevision.notes != null && activeRevision.notes!.isNotEmpty) ||
+                  (activeRevision.terms != null && activeRevision.terms!.isNotEmpty))) ...[
+            _buildNotesAndTermsCard(activeRevision),
             const SizedBox(height: 16),
           ],
 
           // 8. Revision History Card
           if (quote.revisions.isNotEmpty) ...[
-            _buildRevisionHistoryCard(quote),
+            _buildRevisionHistoryCard(quote, activeRevision),
             const SizedBox(height: 16),
           ],
 
           // 9. Timeline / Audit Trail
-          _buildAuditTimeline(quote, revision),
+          _buildAuditTimeline(quote, activeRevision),
         ],
       ),
     );
   }
 
   Widget _buildQuotationHeader(QuotationModel quote, QuotationRevisionModel? revision) {
-    final status = quote.currentStatus;
-    final revisionNumber = quote.currentRevisionNumber;
-    final createdDateStr = DateFormatter.formatDateTime(quote.createdAt);
+    final status = revision?.status ?? quote.currentStatus;
+    final revisionNumber = revision?.revisionNumber ?? quote.currentRevisionNumber;
+    final createdDateStr = DateFormatter.formatDateTime(revision?.createdAt ?? quote.createdAt);
 
     return AutoCard(
       padding: const EdgeInsets.all(16),
@@ -745,6 +772,162 @@ class QuoteDetailScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildCustomerSignatureCard(
+    BuildContext context,
+    WidgetRef ref,
+    QuotationModel quote,
+    QuotationRevisionModel revision,
+  ) {
+    final sig = revision.signature;
+    final signedDate = sig?.signedAt ?? revision.acceptedAt;
+
+    return AutoCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Customer Signature & Acceptance',
+                        style: AppTypography.h3.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const AutoBadge(
+                label: 'ACCEPTED · SIGNED',
+                color: AppColors.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (signedDate != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Signed Timestamp',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                Text(
+                  DateFormatter.formatDateTime(signedDate),
+                  style: AppTypography.bodyMediumEmphasis.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Authorization Method',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              Text(
+                sig?.signatureMethod ?? 'DRAWN',
+                style: AppTypography.bodyMediumEmphasis.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          if (sig?.consentText != null && sig!.consentText.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recorded Legal Consent',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '“${sig.consentText}”',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: 16),
+          AutoButton(
+            label: 'View Signed Quotation (PDF)',
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.white),
+            variant: AutoButtonVariant.primary,
+            isExpanded: true,
+            onPressed: () async {
+              try {
+                final repo = ref.read(quotationsRepositoryProvider);
+                final storagePath = revision.signedDocument?.storagePath ?? '';
+                final url = await repo.getSignedQuotationPdfUrl(
+                  revisionId: revision.id,
+                  storagePath: storagePath,
+                );
+                if (url != null && url.isNotEmpty && context.mounted) {
+                  await PdfLauncherHelper.openPdf(
+                    context,
+                    pdfUrl: url,
+                    title: 'Signed Quotation - ${quote.quotationNumber}',
+                  );
+                } else if (context.mounted) {
+                  AutoToast.showError(context, 'Signed PDF document not found');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  AutoToast.showError(context, 'Failed to get signed PDF: $e');
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNotesAndTermsCard(QuotationRevisionModel revision) {
     return AutoCard(
       padding: const EdgeInsets.all(16),
@@ -834,7 +1017,7 @@ class QuoteDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRevisionHistoryCard(QuotationModel quote) {
+  Widget _buildRevisionHistoryCard(QuotationModel quote, QuotationRevisionModel? activeRevision) {
     return AutoCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -877,74 +1060,116 @@ class QuoteDetailScreen extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final rev = quote.revisions[index];
-              final isCurrent = index == 0;
+              final isSelected = rev.id == activeRevision?.id;
+              final isLatest = index == 0;
 
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.surface2,
-                  borderRadius: AppRadius.radiusMd,
-                  border: isCurrent
-                      ? Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1)
-                      : null,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: isCurrent ? AppColors.primary : AppColors.surface1,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          'R${rev.revisionNumber}',
-                          style: AppTypography.caption.copyWith(
-                            color: isCurrent ? Colors.white : AppColors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 10,
-                          ),
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedRevisionId = rev.id;
+                  });
+                },
+                borderRadius: AppRadius.radiusMd,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.08)
+                        : AppColors.surface2,
+                    borderRadius: AppRadius.radiusMd,
+                    border: isSelected
+                        ? Border.all(color: AppColors.primary, width: 1.5)
+                        : (isLatest ? Border.all(color: AppColors.border, width: 1) : null),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : AppColors.surface1,
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                'Revision ${rev.revisionNumber}',
-                                style: AppTypography.bodyMediumEmphasis.copyWith(
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              AutoBadge.fromStatus(rev.status),
-                            ],
-                          ),
-                          Text(
-                            DateFormatter.formatDateTime(rev.createdAt),
+                        child: Center(
+                          child: Text(
+                            'R${rev.revisionNumber}',
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.textMuted,
+                              color: isSelected ? Colors.white : AppColors.textSecondary,
+                              fontWeight: FontWeight.w700,
                               fontSize: 10,
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'Revision ${rev.revisionNumber}',
+                                  style: AppTypography.bodyMediumEmphasis.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  ),
+                                ),
+                                AutoBadge.fromStatus(rev.status),
+                                if (isSelected)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'VIEWING',
+                                      style: AppTypography.caption.copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            Text(
+                              DateFormatter.formatDateTime(rev.createdAt),
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textMuted,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${rev.total.toStringAsFixed(0)}',
+                            style: AppTypography.bodyMediumEmphasis.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (isLatest)
+                            Text(
+                              'Latest',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                         ],
                       ),
-                    ),
-                    Text(
-                      '₹${rev.total.toStringAsFixed(0)}',
-                      style: AppTypography.bodyMediumEmphasis.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -966,19 +1191,26 @@ class QuoteDetailScreen extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Quotation Lifecycle',
+                  revision != null
+                      ? 'Quotation Lifecycle · Revision ${revision.revisionNumber}'
+                      : 'Quotation Lifecycle',
                   style: AppTypography.h3.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
               ),
+              if (revision != null)
+                AutoBadge.fromStatus(revision.status),
             ],
           ),
           const SizedBox(height: 14),
-          AutoTimeline.forQuotation(
-            currentStatus: quote.currentStatus,
-            timestamp: DateFormatter.timeAgo(quote.createdAt),
-          ),
+          if (revision != null)
+            AutoTimeline.forRevision(revision: revision)
+          else
+            AutoTimeline.forQuotation(
+              currentStatus: quote.currentStatus,
+              timestamp: DateFormatter.timeAgo(quote.createdAt),
+            ),
         ],
       ),
     );
@@ -988,11 +1220,80 @@ class QuoteDetailScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     QuotationModel quote,
+    QuotationRevisionModel? activeRevision,
   ) {
-    final revision = quote.currentRevision;
-    if (revision == null) return const SizedBox.shrink();
+    final latestRev = quote.currentRevision;
+    if (latestRev == null && activeRevision == null) return const SizedBox.shrink();
 
-    final status = quote.currentStatus.toUpperCase();
+    final targetRev = activeRevision ?? latestRev!;
+    final isViewingLatest = latestRev != null && targetRev.id == latestRev.id;
+
+    if (!isViewingLatest && latestRev != null) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          border: const Border(top: BorderSide(color: AppColors.border, width: 1)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Viewing Revision ${targetRev.revisionNumber} (${targetRev.status})',
+                      style: AppTypography.bodyMediumEmphasis.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Historical read-only snapshot',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedRevisionId = latestRev.id;
+                  });
+                },
+                icon: const Icon(Icons.arrow_forward, size: 14, color: AppColors.primary),
+                label: Text(
+                  'View Current (R${latestRev.revisionNumber})',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary, width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final status = targetRev.status.toUpperCase();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -1008,7 +1309,7 @@ class QuoteDetailScreen extends ConsumerWidget {
         ],
       ),
       child: SafeArea(
-        child: _buildStatusBarContent(context, ref, quote, revision, status),
+        child: _buildStatusBarContent(context, ref, quote, targetRev, status),
       ),
     );
   }
@@ -1132,11 +1433,14 @@ class QuoteDetailScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.verified_outlined, color: AppColors.success, size: 18),
               const SizedBox(width: 8),
-              Text(
-                'Quotation Accepted · Locked',
-                style: AppTypography.bodyMediumEmphasis.copyWith(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  'Quotation Accepted · Locked',
+                  style: AppTypography.bodyMediumEmphasis.copyWith(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

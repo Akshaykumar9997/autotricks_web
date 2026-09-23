@@ -125,6 +125,119 @@ class QuotationChangeRequestModel {
   }
 }
 
+/// Represents a verified digital signature record on a quotation revision.
+class QuotationSignatureModel {
+  final String id;
+  final String quotationRevisionId;
+  final String clientId;
+  final String profileId;
+  final String signatureFile;
+  final String signatureMethod;
+  final String consentText;
+  final DateTime acceptedAt;
+  final DateTime signedAt;
+  final DateTime createdAt;
+
+  const QuotationSignatureModel({
+    required this.id,
+    required this.quotationRevisionId,
+    required this.clientId,
+    required this.profileId,
+    required this.signatureFile,
+    this.signatureMethod = 'DRAWN',
+    required this.consentText,
+    required this.acceptedAt,
+    required this.signedAt,
+    required this.createdAt,
+  });
+
+  factory QuotationSignatureModel.fromJson(Map<String, dynamic> json) {
+    return QuotationSignatureModel(
+      id: json['id'] as String,
+      quotationRevisionId: json['quotation_revision_id'] as String,
+      clientId: json['client_id'] as String,
+      profileId: json['profile_id'] as String,
+      signatureFile: json['signature_file'] as String? ?? '',
+      signatureMethod: json['signature_method'] as String? ?? 'DRAWN',
+      consentText: json['consent_text'] as String? ?? '',
+      acceptedAt: json['accepted_at'] != null
+          ? DateTime.tryParse(json['accepted_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      signedAt: json['signed_at'] != null
+          ? DateTime.tryParse(json['signed_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'quotation_revision_id': quotationRevisionId,
+      'client_id': clientId,
+      'profile_id': profileId,
+      'signature_file': signatureFile,
+      'signature_method': signatureMethod,
+      'consent_text': consentText,
+      'accepted_at': acceptedAt.toIso8601String(),
+      'signed_at': signedAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+/// Represents an authoritative generated document record.
+class DocumentModel {
+  final String id;
+  final String clientId;
+  final String? quotationRevisionId;
+  final String? serviceJobId;
+  final String documentType;
+  final String storagePath;
+  final DateTime createdAt;
+
+  const DocumentModel({
+    required this.id,
+    required this.clientId,
+    this.quotationRevisionId,
+    this.serviceJobId,
+    required this.documentType,
+    required this.storagePath,
+    required this.createdAt,
+  });
+
+  factory DocumentModel.fromJson(Map<String, dynamic> json) {
+    return DocumentModel(
+      id: json['id'] as String,
+      clientId: json['client_id'] as String,
+      quotationRevisionId: json['quotation_revision_id'] as String?,
+      serviceJobId: json['service_job_id'] as String?,
+      documentType: json['document_type'] as String? ?? 'QUOTATION_PDF',
+      storagePath: json['storage_path'] as String? ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'client_id': clientId,
+      'quotation_revision_id': quotationRevisionId,
+      'service_job_id': serviceJobId,
+      'document_type': documentType,
+      'storage_path': storagePath,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  bool get isSignedPdf => documentType == 'SIGNED_QUOTATION_PDF';
+  bool get isUnsignedPdf => documentType == 'QUOTATION_PDF';
+}
+
 /// Represents an exact quotation revision.
 class QuotationRevisionModel {
   final String id;
@@ -149,6 +262,8 @@ class QuotationRevisionModel {
 
   final List<QuotationItemModel> items;
   final List<QuotationChangeRequestModel> changeRequests;
+  final QuotationSignatureModel? signature;
+  final List<DocumentModel> documents;
 
   const QuotationRevisionModel({
     required this.id,
@@ -172,6 +287,8 @@ class QuotationRevisionModel {
     this.rejectionReason,
     this.items = const [],
     this.changeRequests = const [],
+    this.signature,
+    this.documents = const [],
   });
 
   factory QuotationRevisionModel.fromJson(Map<String, dynamic> json) {
@@ -187,6 +304,25 @@ class QuotationRevisionModel {
     if (json['quotation_change_requests'] is List) {
       parsedChangeRequests = (json['quotation_change_requests'] as List)
           .map((cr) => QuotationChangeRequestModel.fromJson(cr as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+
+    QuotationSignatureModel? parsedSignature;
+    if (json['quotation_signatures'] != null) {
+      if (json['quotation_signatures'] is List && (json['quotation_signatures'] as List).isNotEmpty) {
+        parsedSignature = QuotationSignatureModel.fromJson(
+            (json['quotation_signatures'] as List).first as Map<String, dynamic>);
+      } else if (json['quotation_signatures'] is Map<String, dynamic>) {
+        parsedSignature = QuotationSignatureModel.fromJson(
+            json['quotation_signatures'] as Map<String, dynamic>);
+      }
+    }
+
+    List<DocumentModel> parsedDocuments = [];
+    if (json['documents'] is List) {
+      parsedDocuments = (json['documents'] as List)
+          .map((d) => DocumentModel.fromJson(d as Map<String, dynamic>))
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
@@ -223,6 +359,8 @@ class QuotationRevisionModel {
       rejectionReason: json['rejection_reason'] as String?,
       items: parsedItems,
       changeRequests: parsedChangeRequests,
+      signature: parsedSignature,
+      documents: parsedDocuments,
     );
   }
 
@@ -249,6 +387,8 @@ class QuotationRevisionModel {
       'rejection_reason': rejectionReason,
       'quotation_items': items.map((i) => i.toJson()).toList(),
       'quotation_change_requests': changeRequests.map((cr) => cr.toJson()).toList(),
+      if (signature != null) 'quotation_signatures': signature!.toJson(),
+      'documents': documents.map((d) => d.toJson()).toList(),
     };
   }
 
@@ -261,6 +401,12 @@ class QuotationRevisionModel {
   bool get isExpired => status.toUpperCase() == 'EXPIRED';
   bool get isCancelled => status.toUpperCase() == 'CANCELLED';
   bool get isSuperseded => status.toUpperCase() == 'SUPERSEDED';
+
+  bool get isSigned => signature != null;
+  DocumentModel? get signedDocument =>
+      documents.where((d) => d.documentType == 'SIGNED_QUOTATION_PDF').firstOrNull;
+  DocumentModel? get unsignedDocument =>
+      documents.where((d) => d.documentType == 'QUOTATION_PDF').firstOrNull;
 }
 
 /// Represents the top-level Quotation document.

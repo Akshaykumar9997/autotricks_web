@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:autotricks/data/models/quotation_model.dart';
 import 'package:autotricks/design_system/components/auto_error_state.dart';
+import 'package:autotricks/design_system/components/auto_signature_canvas.dart';
 import 'package:autotricks/features/client/screens/client_accept_quote_screen.dart';
 import 'package:autotricks/features/client/screens/client_quote_detail_screen.dart';
 import 'package:autotricks/features/client/screens/client_quote_rejected_screen.dart';
@@ -276,24 +277,45 @@ void main() {
         findsOneWidget,
       );
 
-      // Accept button initially disabled
-      final acceptButton = find.widgetWithText(ElevatedButton, 'Accept Quotation');
-      expect(tester.widget<ElevatedButton>(acceptButton).enabled, isFalse);
+      // Review & Confirm button initially disabled
+      final reviewButton = find.widgetWithText(ElevatedButton, 'Review & Confirm');
+      expect(tester.widget<ElevatedButton>(reviewButton).enabled, isFalse);
 
-      // Toggle consent checkbox
+      // Toggle consent checkbox alone
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
-      expect(tester.widget<ElevatedButton>(acceptButton).enabled, isTrue);
+      // In Day 11, button MUST remain disabled without a signature!
+      expect(tester.widget<ElevatedButton>(reviewButton).enabled, isFalse);
 
-      // Tap Accept Quotation
-      await tester.tap(acceptButton);
+      // Draw signature on canvas
+      final canvas = find.byType(AutoSignatureCanvas);
+      await tester.drag(canvas, const Offset(80, 50));
+      await tester.pumpAndSettle();
+
+      // Now button is enabled
+      expect(tester.widget<ElevatedButton>(reviewButton).enabled, isTrue);
+
+      // Tap Review & Confirm -> moves to deliberate confirmation
+      await tester.tap(reviewButton);
+      await tester.runAsync(() async {
+        await Future.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pumpAndSettle();
+
+      // Tap Confirm & Sign
+      final confirmButton = find.widgetWithText(ElevatedButton, 'Confirm & Sign');
+      await tester.tap(confirmButton);
+      await tester.runAsync(() async {
+        await Future.delayed(const Duration(milliseconds: 100));
+      });
       await tester.pumpAndSettle();
 
       // Verify status updated to ACCEPTED
       final updatedQuote = await clientRepo.getQuotationById('q-client-1');
       expect(updatedQuote.currentStatus, 'ACCEPTED');
       expect(updatedQuote.latestRevision!.acceptedAt, isNotNull);
+      expect(updatedQuote.latestRevision!.isSigned, isTrue);
       expect(
         updatedQuote.latestRevision!.acceptanceConsentText,
         contains('I understand that digital signature authorization in the next step is required'),

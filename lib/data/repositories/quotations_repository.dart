@@ -55,6 +55,18 @@ abstract class QuotationsRepository {
     required String revisionId,
     required String status,
   });
+
+  /// Retrieves a 1-hour signed download URL for the signed quotation PDF.
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  });
+
+  /// Retrieves a 1-hour signed download URL for the unsigned quotation PDF.
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  });
 }
 
 class SupabaseQuotationsRepository implements QuotationsRepository {
@@ -145,6 +157,27 @@ class SupabaseQuotationsRepository implements QuotationsRepository {
         admin_response,
         created_at,
         responded_at
+      ),
+      quotation_signatures (
+        id,
+        quotation_revision_id,
+        client_id,
+        profile_id,
+        signature_file,
+        signature_method,
+        consent_text,
+        accepted_at,
+        signed_at,
+        created_at
+      ),
+      documents (
+        id,
+        client_id,
+        quotation_revision_id,
+        service_job_id,
+        document_type,
+        storage_path,
+        created_at
       )
     )
   ''';
@@ -486,6 +519,83 @@ class SupabaseQuotationsRepository implements QuotationsRepository {
 
       return Map<String, dynamic>.from(rpcResult as Map);
     } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    String path = storagePath.trim();
+    if (path.isEmpty) {
+      try {
+        final doc = await _client
+            .from('documents')
+            .select('storage_path')
+            .eq('quotation_revision_id', revisionId)
+            .eq('document_type', 'SIGNED_QUOTATION_PDF')
+            .maybeSingle();
+        if (doc != null && doc['storage_path'] != null) {
+          path = (doc['storage_path'] as String).trim();
+        }
+      } catch (_) {}
+    }
+
+    if (path.isNotEmpty) {
+      try {
+        final cleanPath = path.startsWith('signed-quotation-pdfs/')
+            ? path.replaceFirst('signed-quotation-pdfs/', '')
+            : path;
+        final res = await _client.storage
+            .from('signed-quotation-pdfs')
+            .createSignedUrl(cleanPath, 3600);
+        if (res.isNotEmpty) return res;
+      } catch (_) {}
+    }
+
+    try {
+      final resp = await _client.functions.invoke(
+        'sign-quotation',
+        body: {
+          'action': 'get-document-url',
+          'revision_id': revisionId,
+          'document_type': 'SIGNED_QUOTATION_PDF',
+        },
+      );
+      if (resp.status == 200 && resp.data is Map && resp.data['signed_url'] != null) {
+        return resp.data['signed_url'] as String;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  @override
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    try {
+      final res = await _client.storage
+          .from('quotation-pdfs')
+          .createSignedUrl(storagePath, 3600);
+      return res;
+    } catch (e) {
+      try {
+        final resp = await _client.functions.invoke(
+          'sign-quotation',
+          body: {
+            'action': 'get-document-url',
+            'revision_id': revisionId,
+            'document_type': 'QUOTATION_PDF',
+          },
+        );
+        if (resp.status == 200 && resp.data is Map && resp.data['signed_url'] != null) {
+          return resp.data['signed_url'] as String;
+        }
+      } catch (_) {}
       rethrow;
     }
   }

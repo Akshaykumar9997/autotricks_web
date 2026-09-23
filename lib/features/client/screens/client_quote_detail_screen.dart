@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/pdf_launcher_helper.dart';
 import '../../../data/models/quotation_model.dart';
 import '../../../design_system/components/auto_badge.dart';
 import '../../../design_system/components/auto_card.dart';
@@ -32,6 +33,47 @@ class _ClientQuoteDetailScreenState
     extends ConsumerState<ClientQuoteDetailScreen> {
   String? _autoViewedRevisionId;
   bool _isRejecting = false;
+  bool _isLoadingPdf = false;
+
+  Future<void> _viewSignedPdf(QuotationRevisionModel rev) async {
+    setState(() => _isLoadingPdf = true);
+    try {
+      final repo = ref.read(clientPortalRepositoryProvider);
+      final storagePath = rev.signedDocument?.storagePath ?? '';
+      final url = await repo.getSignedQuotationPdfUrl(
+        revisionId: rev.id,
+        storagePath: storagePath,
+      );
+
+      if (url != null && url.isNotEmpty && mounted) {
+        await PdfLauncherHelper.openPdf(
+          context,
+          pdfUrl: url,
+          title: 'Signed Quotation PDF',
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Signed PDF document not available.'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading signed PDF: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingPdf = false);
+      }
+    }
+  }
 
   void _triggerAutoMarkViewed(QuotationRevisionModel rev) {
     if (_autoViewedRevisionId == rev.id) return;
@@ -269,6 +311,12 @@ class _ClientQuoteDetailScreenState
                         _buildSummaryCard(rev),
                         const SizedBox(height: AppSpacing.md),
 
+                        // 4b. Customer Acceptance & Signed Document (if accepted & signed)
+                        if (rev.isSigned || rev.signedDocument != null) ...[
+                          _buildSignedSection(quote, rev),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
+
                         // 5. Notes & Terms (if present)
                         if ((rev.notes != null && rev.notes!.trim().isNotEmpty) ||
                             (rev.terms != null && rev.terms!.trim().isNotEmpty)) ...[
@@ -342,10 +390,11 @@ class _ClientQuoteDetailScreenState
     } else if (status == 'ACCEPTED') {
       bannerBg = AppColors.success.withValues(alpha: 0.12);
       borderCol = AppColors.success.withValues(alpha: 0.35);
-      icon = Icons.check_circle_outline_rounded;
-      bannerTitle = 'Quotation Accepted';
-      bannerDesc =
-          'You agreed to the quoted scope, pricing, and terms. Digital signature authorization is required in the next step before service execution can begin.';
+      icon = Icons.verified_rounded;
+      bannerTitle = rev.isSigned ? 'Quotation Signed & Accepted' : 'Quotation Accepted';
+      bannerDesc = rev.isSigned
+          ? 'Digitally signed and authorized. Official signed PDF document has been archived.'
+          : 'You agreed to the quoted scope, pricing, and terms.';
     } else if (status == 'REJECTED') {
       bannerBg = AppColors.danger.withValues(alpha: 0.12);
       borderCol = AppColors.danger.withValues(alpha: 0.35);
@@ -804,6 +853,108 @@ class _ClientQuoteDetailScreenState
     );
   }
 
+  Widget _buildSignedSection(QuotationModel quote, QuotationRevisionModel rev) {
+    final sig = rev.signature;
+    final signedDate = sig?.signedAt ?? rev.acceptedAt;
+
+    return AutoCard(
+      backgroundColor: AppColors.surface1,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'DIGITAL SIGNATURE & ACCEPTANCE',
+                  style: AppTypography.labelMd.copyWith(
+                    color: AppColors.textMuted,
+                    letterSpacing: 1.0,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const AutoBadge(
+                label: 'AUTHORIZED',
+                color: AppColors.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (signedDate != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Signed On',
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                Text(
+                  DateFormatter.formatDateTime(signedDate),
+                  style: AppTypography.bodyMdEmphasis.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Authorization Method',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              Text(
+                sig?.signatureMethod ?? 'DRAWN',
+                style: AppTypography.bodyMdEmphasis.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Divider(color: AppColors.borderSubtle, height: 1),
+          const SizedBox(height: AppSpacing.md),
+          ElevatedButton.icon(
+            onPressed: _isLoadingPdf ? null : () => _viewSignedPdf(rev),
+            icon: _isLoadingPdf
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.picture_as_pdf_rounded, size: 18),
+            label: const Text('View Signed Quotation (PDF)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(42),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRevisionHistorySection(QuotationModel quote) {
     final sortedRevisions = List<QuotationRevisionModel>.from(quote.revisions)
       ..sort((a, b) => b.revisionNumber.compareTo(a.revisionNumber));
@@ -1127,12 +1278,33 @@ class _ClientQuoteDetailScreenState
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Quotation Accepted · Signature required in next step',
+                  rev.isSigned
+                      ? 'Quotation Signed & Accepted'
+                      : 'Quotation Accepted',
                   style: AppTypography.bodyMdEmphasis.copyWith(
                     color: AppColors.success,
                   ),
                 ),
               ),
+              if (rev.isSigned || rev.signedDocument != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                ElevatedButton.icon(
+                  onPressed: _isLoadingPdf ? null : () => _viewSignedPdf(rev),
+                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                  label: const Text('View PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

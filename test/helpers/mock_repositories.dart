@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:autotricks/data/models/activity_item_model.dart';
@@ -1390,6 +1391,22 @@ class MockQuotationsRepository implements QuotationsRepository {
     }
     throw Exception('Revision not found: $revisionId');
   }
+
+  @override
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    return 'https://mock.storage/signed.pdf';
+  }
+
+  @override
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    return 'https://mock.storage/unsigned.pdf';
+  }
 }
 
 class MockClientPortalRepository implements ClientPortalRepository {
@@ -1901,49 +1918,9 @@ class MockClientPortalRepository implements ClientPortalRepository {
     required String revisionId,
     required String consentText,
   }) async {
-    for (int i = 0; i < quotations.length; i++) {
-      final q = quotations[i];
-      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
-      if (revIndex != -1) {
-        final rev = q.revisions[revIndex];
-        final updatedRev = QuotationRevisionModel(
-          id: rev.id,
-          quotationId: rev.quotationId,
-          revisionNumber: rev.revisionNumber,
-          status: 'ACCEPTED',
-          subtotal: rev.subtotal,
-          discount: rev.discount,
-          tax: rev.tax,
-          total: rev.total,
-          notes: rev.notes,
-          terms: rev.terms,
-          createdBy: rev.createdBy,
-          createdAt: rev.createdAt,
-          sentAt: rev.sentAt,
-          viewedAt: rev.viewedAt,
-          acceptedAt: DateTime.now(),
-          acceptedByProfileId: 'prof-client-1',
-          acceptanceConsentText: consentText,
-          rejectedAt: null,
-          rejectionReason: null,
-          items: rev.items,
-          changeRequests: rev.changeRequests,
-        );
-        final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
-        updatedRevisions[revIndex] = updatedRev;
-        quotations[i] = QuotationModel(
-          id: q.id,
-          quotationNumber: q.quotationNumber,
-          serviceRequestId: q.serviceRequestId,
-          createdBy: q.createdBy,
-          createdAt: q.createdAt,
-          updatedAt: DateTime.now(),
-          serviceRequest: q.serviceRequest,
-          revisions: updatedRevisions,
-        );
-        return;
-      }
-    }
+    throw UnsupportedError(
+      'Direct quotation acceptance without signature is forbidden. Digital signature is mandatory.',
+    );
   }
 
   @override
@@ -1994,6 +1971,127 @@ class MockClientPortalRepository implements ClientPortalRepository {
         return;
       }
     }
+  }
+
+  @override
+  Future<Map<String, dynamic>> signQuotationRevision({
+    required String revisionId,
+    required String consentText,
+    required Uint8List signatureBytes,
+  }) async {
+    for (int i = 0; i < quotations.length; i++) {
+      final q = quotations[i];
+      final revIndex = q.revisions.indexWhere((r) => r.id == revisionId);
+      if (revIndex != -1) {
+        final rev = q.revisions[revIndex];
+        final now = DateTime.now();
+        final sig = QuotationSignatureModel(
+          id: 'sig-${now.millisecondsSinceEpoch}',
+          quotationRevisionId: rev.id,
+          clientId: q.serviceRequest?.clientId ?? "c-1",
+          profileId: 'prof-client-1',
+          signatureFile: 'signatures/${q.serviceRequest?.clientId ?? "c-1"}/${rev.id}/signature.png',
+          signatureMethod: 'DRAWN',
+          consentText: consentText,
+          acceptedAt: now,
+          signedAt: now,
+          createdAt: now,
+        );
+        final signedDoc = DocumentModel(
+          id: 'doc-${now.millisecondsSinceEpoch}',
+          clientId: q.serviceRequest?.clientId ?? "c-1",
+          quotationRevisionId: rev.id,
+          documentType: 'SIGNED_QUOTATION_PDF',
+          storagePath: 'signed-quotation-pdfs/${q.serviceRequest?.clientId ?? "c-1"}/${q.id}/revision-${rev.revisionNumber}-signed.pdf',
+          createdAt: now,
+        );
+        final updatedRev = QuotationRevisionModel(
+          id: rev.id,
+          quotationId: rev.quotationId,
+          revisionNumber: rev.revisionNumber,
+          status: 'ACCEPTED',
+          subtotal: rev.subtotal,
+          discount: rev.discount,
+          tax: rev.tax,
+          total: rev.total,
+          notes: rev.notes,
+          terms: rev.terms,
+          createdBy: rev.createdBy,
+          createdAt: rev.createdAt,
+          sentAt: rev.sentAt,
+          viewedAt: rev.viewedAt,
+          acceptedAt: now,
+          acceptedByProfileId: 'prof-client-1',
+          acceptanceConsentText: consentText,
+          rejectedAt: null,
+          rejectionReason: null,
+          items: rev.items,
+          changeRequests: rev.changeRequests,
+          signature: sig,
+          documents: [signedDoc],
+        );
+        final updatedRevisions = List<QuotationRevisionModel>.from(q.revisions);
+        updatedRevisions[revIndex] = updatedRev;
+
+        ServiceRequestModel? updatedSr;
+        if (q.serviceRequest != null) {
+          final newSr = ServiceRequestModel(
+            id: q.serviceRequest!.id,
+            requestNumber: q.serviceRequest!.requestNumber,
+            source: q.serviceRequest!.source,
+            status: 'APPROVED',
+            clientId: q.serviceRequest!.clientId,
+            vehicleId: q.serviceRequest!.vehicleId,
+            adminNotes: q.serviceRequest!.adminNotes,
+            createdAt: q.serviceRequest!.createdAt,
+            updatedAt: now,
+            client: q.serviceRequest!.client,
+            vehicle: q.serviceRequest!.vehicle,
+          );
+          updatedSr = newSr;
+          final srIdx = serviceRequests.indexWhere((sr) => sr.id == newSr.id);
+          if (srIdx != -1) {
+            serviceRequests[srIdx] = newSr;
+          } else {
+            serviceRequests.add(newSr);
+          }
+        }
+
+        quotations[i] = QuotationModel(
+          id: q.id,
+          quotationNumber: q.quotationNumber,
+          serviceRequestId: q.serviceRequestId,
+          createdBy: q.createdBy,
+          createdAt: q.createdAt,
+          updatedAt: now,
+          serviceRequest: updatedSr,
+          revisions: updatedRevisions,
+        );
+
+        return {
+          'success': true,
+          'status': 'ACCEPTED',
+          'signed_pdf_url': 'https://mock.storage/signed.pdf',
+        };
+      }
+    }
+    throw Exception('Revision not found: $revisionId');
+  }
+
+  @override
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    return 'https://mock.storage/signed.pdf';
+  }
+
+  @override
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    return 'https://mock.storage/unsigned.pdf';
   }
 }
 

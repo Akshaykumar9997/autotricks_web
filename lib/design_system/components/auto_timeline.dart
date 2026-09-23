@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/date_formatter.dart';
+import '../../data/models/quotation_model.dart';
 import '../tokens/app_colors.dart';
 import '../tokens/app_typography.dart';
 
@@ -85,58 +87,274 @@ class AutoTimeline extends StatelessWidget {
     );
   }
 
+  factory AutoTimeline.forRevision({
+    required QuotationRevisionModel revision,
+  }) {
+    final status = revision.status.toUpperCase();
+    final revNum = revision.revisionNumber;
+    final createdStr = DateFormatter.formatDateTime(revision.createdAt);
+    final sentStr = revision.sentAt != null ? DateFormatter.formatDateTime(revision.sentAt!) : null;
+    final acceptedDate = revision.signature?.signedAt ?? revision.acceptedAt;
+    final acceptedStr = acceptedDate != null ? DateFormatter.formatDateTime(acceptedDate) : null;
+    final rejectedStr = revision.rejectedAt != null ? DateFormatter.formatDateTime(revision.rejectedAt!) : null;
+
+    final List<AutoTimelineStep> steps;
+
+    switch (status) {
+      case 'DRAFT':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.edit_note_outlined,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+          const AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Pending delivery to client',
+            icon: Icons.send_outlined,
+            isCompleted: false,
+            isCurrent: false,
+          ),
+          const AutoTimelineStep(
+            title: 'AWAITING SIGNATURE',
+            subtitle: 'Pending client decision',
+            icon: Icons.check_circle_outline,
+            isCompleted: false,
+            isCurrent: false,
+          ),
+        ];
+        break;
+
+      case 'SENT':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.send_outlined,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+          const AutoTimelineStep(
+            title: 'AWAITING SIGNATURE',
+            subtitle: 'Awaiting client review & signature',
+            icon: Icons.check_circle_outline,
+            isCompleted: false,
+            isCurrent: false,
+          ),
+        ];
+        break;
+
+      case 'VIEWED':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'VIEWED BY CLIENT',
+            subtitle: 'Opened by client${revision.viewedAt != null ? ' · ${DateFormatter.formatDateTime(revision.viewedAt!)}' : ''} · Awaiting signature',
+            icon: Icons.visibility_outlined,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+        break;
+
+      case 'CHANGE_REQUESTED':
+        final crTime = revision.changeRequests.isNotEmpty
+            ? DateFormatter.formatDateTime(revision.changeRequests.first.createdAt)
+            : null;
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'CHANGE REQUESTED',
+            subtitle: 'Client requested changes${crTime != null ? ' · $crTime' : ''}',
+            icon: Icons.feedback_outlined,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+        break;
+
+      case 'ACCEPTED':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'ACCEPTED / SIGNED',
+            subtitle: 'Client signed & accepted · ${acceptedStr ?? 'Digitally verified'}',
+            icon: Icons.verified_rounded,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+        break;
+
+      case 'SUPERSEDED':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SUPERSEDED',
+            subtitle: 'Superseded by Revision ${revNum + 1}',
+            icon: Icons.history_toggle_off,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+        break;
+
+      case 'REJECTED':
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'SENT TO CLIENT',
+            subtitle: 'Delivered to client · ${sentStr ?? createdStr}',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: 'REJECTED',
+            subtitle: 'Quotation rejected by client${rejectedStr != null ? ' · $rejectedStr' : ''}',
+            icon: Icons.cancel_outlined,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+        break;
+
+      default:
+        steps = [
+          AutoTimelineStep(
+            title: 'DRAFT CREATED',
+            subtitle: 'Revision $revNum drafted · $createdStr',
+            icon: Icons.check,
+            isCompleted: true,
+            isCurrent: false,
+          ),
+          AutoTimelineStep(
+            title: status,
+            subtitle: 'Status: $status',
+            icon: Icons.info_outline,
+            isCompleted: false,
+            isCurrent: true,
+          ),
+        ];
+    }
+
+    return AutoTimeline(steps: steps);
+  }
+
   factory AutoTimeline.forQuotation({
     required String currentStatus,
     String? timestamp,
   }) {
-    final statusList = [
-      'DRAFT',
-      'SENT',
-      'APPROVED',
-    ];
-
     final upper = currentStatus.toUpperCase();
-    final effectiveIndex = upper == 'REJECTED' || upper == 'SUPERSEDED'
-        ? 1
-        : (statusList.contains(upper) ? statusList.indexOf(upper) : 0);
+    final isAccepted = upper == 'ACCEPTED' || upper == 'APPROVED';
+    final isTerminal = isAccepted || upper == 'REJECTED' || upper == 'SUPERSEDED';
 
-    final icons = [
-      Icons.edit_note_outlined,
-      Icons.send_outlined,
-      Icons.check_circle_outline,
+    final effectiveIndex = isTerminal ? 2 : (upper == 'SENT' || upper == 'VIEWED' ? 1 : 0);
+
+    final terminalLabel = isAccepted
+        ? 'ACCEPTED / SIGNED'
+        : (upper == 'REJECTED' ? 'REJECTED' : (upper == 'SUPERSEDED' ? 'SUPERSEDED' : 'AWAITING SIGNATURE'));
+
+    final terminalSub = isAccepted
+        ? 'Client signed & accepted${timestamp != null ? ' · $timestamp' : ''}'
+        : (upper == 'REJECTED'
+            ? 'Quotation was rejected'
+            : (upper == 'SUPERSEDED'
+                ? 'Superseded by new revision'
+                : 'Pending client decision'));
+
+    final steps = [
+      AutoTimelineStep(
+        title: 'DRAFT CREATED',
+        subtitle: 'Quotation drafted${effectiveIndex == 0 && timestamp != null ? ' · $timestamp' : ''}',
+        icon: effectiveIndex > 0 ? Icons.check : Icons.edit_note_outlined,
+        isCompleted: effectiveIndex > 0,
+        isCurrent: effectiveIndex == 0,
+      ),
+      AutoTimelineStep(
+        title: 'SENT TO CLIENT',
+        subtitle: effectiveIndex >= 1 ? 'Quotation delivered to client' : null,
+        icon: effectiveIndex > 1 ? Icons.check : Icons.send_outlined,
+        isCompleted: effectiveIndex > 1,
+        isCurrent: effectiveIndex == 1,
+      ),
+      AutoTimelineStep(
+        title: terminalLabel,
+        subtitle: effectiveIndex == 2 ? terminalSub : null,
+        icon: isAccepted ? Icons.verified_rounded : Icons.check_circle_outline,
+        isCompleted: false,
+        isCurrent: effectiveIndex == 2,
+      ),
     ];
 
-    final labels = [
-      'DRAFT CREATED',
-      'SENT TO CLIENT',
-      upper == 'REJECTED'
-          ? 'REJECTED'
-          : (upper == 'SUPERSEDED' ? 'SUPERSEDED' : 'APPROVED'),
-    ];
-
-    final subLabels = [
-      'Quotation revision 1 drafted${timestamp != null ? ' · $timestamp' : ''}',
-      'Awaiting client review',
-      upper == 'REJECTED'
-          ? 'Quotation was rejected'
-          : (upper == 'SUPERSEDED'
-              ? 'Superseded by new revision'
-              : 'Quotation approved by client'),
-    ];
-
-    return AutoTimeline(
-      steps: List.generate(statusList.length, (i) {
-        final isCompleted = i < effectiveIndex;
-        final isCurrent = i == effectiveIndex;
-        return AutoTimelineStep(
-          title: labels[i],
-          subtitle: (isCompleted || isCurrent) ? subLabels[i] : null,
-          icon: isCompleted ? Icons.check : icons[i],
-          isCompleted: isCompleted,
-          isCurrent: isCurrent,
-        );
-      }),
-    );
+    return AutoTimeline(steps: steps);
   }
 
   @override

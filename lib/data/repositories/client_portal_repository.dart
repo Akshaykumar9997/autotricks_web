@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/client_model.dart';
 import '../models/quotation_model.dart';
@@ -20,6 +22,21 @@ abstract class ClientPortalRepository {
   Future<void> requestQuotationChange({required String revisionId, required String message});
   Future<void> acceptQuotationRevision({required String revisionId, required String consentText});
   Future<void> rejectQuotationRevision({required String revisionId, required String reason});
+
+  // Day 11 Digital Signature & Document Methods
+  Future<Map<String, dynamic>> signQuotationRevision({
+    required String revisionId,
+    required String consentText,
+    required Uint8List signatureBytes,
+  });
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  });
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  });
 }
 
 class SupabaseClientPortalRepository implements ClientPortalRepository {
@@ -245,6 +262,27 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
         admin_response,
         created_at,
         responded_at
+      ),
+      quotation_signatures (
+        id,
+        quotation_revision_id,
+        client_id,
+        profile_id,
+        signature_file,
+        signature_method,
+        consent_text,
+        accepted_at,
+        signed_at,
+        created_at
+      ),
+      documents (
+        id,
+        client_id,
+        quotation_revision_id,
+        service_job_id,
+        document_type,
+        storage_path,
+        created_at
       )
     )
   ''';
@@ -356,18 +394,9 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
     required String revisionId,
     required String consentText,
   }) async {
-    try {
-      await _client.rpc(
-        'client_accept_quotation_revision',
-        params: {
-          'p_revision_id': revisionId,
-          'p_consent_given': true,
-          'p_consent_text': consentText.trim(),
-        },
-      );
-    } catch (e) {
-      rethrow;
-    }
+    throw UnsupportedError(
+      'Direct quotation acceptance without signature is forbidden. Digital signature is mandatory.',
+    );
   }
 
   @override
@@ -384,6 +413,116 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
         },
       );
     } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> signQuotationRevision({
+    required String revisionId,
+    required String consentText,
+    required Uint8List signatureBytes,
+  }) async {
+    try {
+      final base64Signature = base64Encode(signatureBytes);
+      final response = await _client.functions.invoke(
+        'sign-quotation',
+        body: {
+          'action': 'sign',
+          'revision_id': revisionId,
+          'consent_given': true,
+          'consent_text': consentText.trim(),
+          'signature_png_base64': base64Signature,
+        },
+      );
+
+      final data = response.data;
+      if (response.status != 200 || (data is Map && data['error'] != null)) {
+        final errMsg = data is Map && data['error'] != null
+            ? data['error']
+            : 'Signing failed with status ${response.status}';
+        throw Exception(errMsg);
+      }
+
+      return Map<String, dynamic>.from(data as Map);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<String?> getSignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    String path = storagePath.trim();
+    if (path.isEmpty) {
+      try {
+        final doc = await _client
+            .from('documents')
+            .select('storage_path')
+            .eq('quotation_revision_id', revisionId)
+            .eq('document_type', 'SIGNED_QUOTATION_PDF')
+            .maybeSingle();
+        if (doc != null && doc['storage_path'] != null) {
+          path = (doc['storage_path'] as String).trim();
+        }
+      } catch (_) {}
+    }
+
+    if (path.isNotEmpty) {
+      try {
+        final cleanPath = path.startsWith('signed-quotation-pdfs/')
+            ? path.replaceFirst('signed-quotation-pdfs/', '')
+            : path;
+        final res = await _client.storage
+            .from('signed-quotation-pdfs')
+            .createSignedUrl(cleanPath, 3600);
+        if (res.isNotEmpty) return res;
+      } catch (_) {}
+    }
+
+    try {
+      final resp = await _client.functions.invoke(
+        'sign-quotation',
+        body: {
+          'action': 'get-document-url',
+          'revision_id': revisionId,
+          'document_type': 'SIGNED_QUOTATION_PDF',
+        },
+      );
+      if (resp.status == 200 && resp.data is Map && resp.data['signed_url'] != null) {
+        return resp.data['signed_url'] as String;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  @override
+  Future<String?> getUnsignedQuotationPdfUrl({
+    required String revisionId,
+    required String storagePath,
+  }) async {
+    try {
+      final res = await _client.storage
+          .from('quotation-pdfs')
+          .createSignedUrl(storagePath, 3600);
+      return res;
+    } catch (e) {
+      try {
+        final resp = await _client.functions.invoke(
+          'sign-quotation',
+          body: {
+            'action': 'get-document-url',
+            'revision_id': revisionId,
+            'document_type': 'QUOTATION_PDF',
+          },
+        );
+        if (resp.status == 200 && resp.data is Map && resp.data['signed_url'] != null) {
+          return resp.data['signed_url'] as String;
+        }
+      } catch (_) {}
       rethrow;
     }
   }
