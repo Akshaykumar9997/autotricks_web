@@ -13,6 +13,7 @@ import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_radius.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
+import '../components/service_progress_tracker.dart';
 import '../providers/client_portal_provider.dart';
 import '../utils/client_quotation_status_helper.dart';
 import '../utils/client_status_helper.dart';
@@ -46,6 +47,8 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep client view in sync with live job status changes via Realtime
+    ref.watch(clientRealtimeJobsProvider);
     final requestAsync = ref.watch(clientServiceRequestDetailProvider(requestId));
 
     return Scaffold(
@@ -100,6 +103,8 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
           onRefresh: () async {
             ref.invalidate(clientServiceRequestDetailProvider(requestId));
             ref.invalidate(clientQuotationForServiceRequestProvider(requestId));
+            ref.invalidate(clientJobForRequestProvider(requestId));
+            ref.invalidate(clientActiveJobProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -117,6 +122,12 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
                 // 2. Status & Next Action Banner
                 _buildStatusBanner(context, request),
                 const SizedBox(height: AppSpacing.md),
+
+                // 2b. Live Service Job Progress Tracker (when CONVERTED_TO_JOB)
+                if (request.status.toUpperCase() == 'CONVERTED_TO_JOB') ...[
+                  _buildServiceJobCard(context, ref, request),
+                  const SizedBox(height: AppSpacing.md),
+                ],
 
                 // 3. Vehicle Information Card
                 _buildVehicleInfoCard(context, request),
@@ -269,31 +280,37 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      ClientStatusHelper.getStatusIcon(request),
-                      size: 14,
-                      color: statusColor,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      statusLabel,
-                      style: AppTypography.labelSm.copyWith(
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        ClientStatusHelper.getStatusIcon(request),
+                        size: 14,
                         color: statusColor,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          statusLabel,
+                          style: AppTypography.labelSm.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm),
               Text(
                 DateFormatter.formatRelative(request.updatedAt),
                 style: AppTypography.caption.copyWith(
@@ -955,6 +972,319 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildServiceJobCard(
+    BuildContext context,
+    WidgetRef ref,
+    ServiceRequestModel request,
+  ) {
+    final jobAsync = ref.watch(clientJobForRequestProvider(request.id));
+
+    return jobAsync.when(
+      data: (job) {
+        if (job == null) return const SizedBox.shrink();
+
+        final statusColor = ServiceProgressTracker.getStatusColor(job.status);
+        final statusLabel =
+            ServiceProgressTracker.stepLabels[job.status] ?? job.status;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            border: Border.all(
+              color: statusColor.withValues(alpha: 0.35),
+            ),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.engineering_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            'LIVE SERVICE PROGRESS',
+                            style: AppTypography.labelSm.copyWith(
+                              color: AppColors.textMuted,
+                              letterSpacing: 1.0,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      border: Border.all(
+                        color: statusColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusLabel,
+                          style: AppTypography.caption.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+
+              // Job Number badge & date info
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
+                    child: Text(
+                      job.jobNumber,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  if (job.startedAt != null)
+                    Text(
+                      'Started ${DateFormatter.formatDate(job.startedAt!)}',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // 7-step Visual Stepper
+              ServiceProgressTracker(
+                currentStatus: job.status,
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // Work Items progress counter
+              if (job.workItems.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Service Tasks',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            '${job.completedItemsCount} / ${job.workItems.length} completed',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        child: LinearProgressIndicator(
+                          value: job.workItems.isEmpty
+                              ? 0.0
+                              : job.completedItemsCount /
+                                  job.workItems.length,
+                          backgroundColor: AppColors.surfaceContainerHigh,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            job.isCompleted
+                                ? AppColors.success
+                                : AppColors.primary,
+                          ),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+
+              // Status History Timeline
+              if (job.statusHistory.isNotEmpty) ...[
+                Material(
+                  color: Colors.transparent,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                    ),
+                    child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: EdgeInsets.zero,
+                    initiallyExpanded: false,
+                    title: Text(
+                      'Progress Updates (${job.statusHistory.length})',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    children: [
+                      const SizedBox(height: AppSpacing.xs),
+                      ...job.statusHistory.reversed.map((history) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.only(top: 4),
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: ServiceProgressTracker.getStatusColor(
+                                    history.toStatus,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            ServiceProgressTracker.stepLabels[
+                                                    history.toStatus] ??
+                                                history.toStatus,
+                                            style:
+                                                AppTypography.caption.copyWith(
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.xs),
+                                        Text(
+                                          DateFormatter.formatDateTime(
+                                            history.createdAt,
+                                          ),
+                                          style:
+                                              AppTypography.caption.copyWith(
+                                            color: AppColors.textMuted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (history.note != null &&
+                                        history.note!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        history.note!,
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.textSecondary,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
+        child: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.md),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+      error: (err, stack) => const SizedBox.shrink(),
     );
   }
 

@@ -399,7 +399,7 @@ class AdminHomeScreen extends ConsumerWidget {
             AutoCard(
               padding: const EdgeInsets.all(14),
               onTap: () {
-                AutoToast.showInfo(context, 'Service jobs batch implementation active in next milestone.');
+                context.push('/admin/quotes?filter=ACCEPTED');
               },
               child: Row(
                 children: [
@@ -491,7 +491,7 @@ class AdminHomeScreen extends ConsumerWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(14),
               onTap: () {
-                AutoToast.showInfo(context, 'Job ${job.jobNumber} details.');
+                context.push('/admin/jobs/${job.id}');
               },
               child: Column(
                 children: [

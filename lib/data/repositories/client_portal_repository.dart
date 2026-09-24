@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/client_model.dart';
 import '../models/quotation_model.dart';
+import '../models/service_job_model.dart';
 import '../models/service_request_model.dart';
 import '../models/vehicle_model.dart';
 
@@ -37,6 +38,13 @@ abstract class ClientPortalRepository {
     required String revisionId,
     required String storagePath,
   });
+
+  // Day 12 Service Job Methods
+  Future<ServiceJobModel?> fetchActiveServiceJob();
+  Future<ServiceJobModel> getServiceJobById(String jobId);
+  Future<ServiceJobModel?> getServiceJobByRequestId(String serviceRequestId);
+  Future<List<ServiceJobStatusHistoryModel>> fetchJobStatusHistory(String jobId);
+  RealtimeChannel subscribeToClientJobs(void Function() onJobChanged);
 }
 
 class SupabaseClientPortalRepository implements ClientPortalRepository {
@@ -525,6 +533,179 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
       } catch (_) {}
       rethrow;
     }
+  }
+
+  static const String _clientJobSelect = '''
+    id,
+    job_number,
+    service_request_id,
+    quotation_revision_id,
+    vehicle_id,
+    status,
+    started_at,
+    completed_at,
+    scheduled_at,
+    created_at,
+    updated_at,
+    vehicles (
+      id,
+      client_id,
+      make,
+      model,
+      manufacturing_year,
+      registration_number,
+      chassis_number
+    ),
+    service_requests (
+      id,
+      request_number,
+      client_id,
+      vehicle_id,
+      source,
+      status,
+      created_by,
+      created_at,
+      updated_at,
+      original_submission
+    ),
+    service_work_items (
+      id,
+      service_job_id,
+      quotation_item_id,
+      name,
+      description,
+      quantity,
+      source,
+      status,
+      approval_status,
+      approximate_value,
+      final_value,
+      approved_value,
+      decision_by_profile_id,
+      decision_at,
+      approval_note,
+      created_at,
+      updated_at
+    ),
+    service_job_status_history (
+      id,
+      service_job_id,
+      from_status,
+      to_status,
+      changed_by_profile_id,
+      note,
+      created_at
+    )
+  ''';
+
+  @override
+  Future<ServiceJobModel?> fetchActiveServiceJob() async {
+    try {
+      // RLS on service_jobs automatically isolates to current client
+      final data = await _client
+          .from('service_jobs')
+          .select(_clientJobSelect)
+          .not('status', 'in', '(COMPLETED,CANCELLED)')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (data == null) return null;
+      final model = ServiceJobModel.fromJson(data);
+      final sortedItems = List<ServiceWorkItemModel>.from(model.workItems)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final sortedHistory = List<ServiceJobStatusHistoryModel>.from(model.statusHistory)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      return model.copyWith(
+        workItems: sortedItems,
+        statusHistory: sortedHistory,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ServiceJobModel> getServiceJobById(String jobId) async {
+    try {
+      final data = await _client
+          .from('service_jobs')
+          .select(_clientJobSelect)
+          .eq('id', jobId)
+          .single();
+
+      final model = ServiceJobModel.fromJson(data);
+      final sortedItems = List<ServiceWorkItemModel>.from(model.workItems)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final sortedHistory = List<ServiceJobStatusHistoryModel>.from(model.statusHistory)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      return model.copyWith(
+        workItems: sortedItems,
+        statusHistory: sortedHistory,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ServiceJobModel?> getServiceJobByRequestId(String serviceRequestId) async {
+    try {
+      final data = await _client
+          .from('service_jobs')
+          .select(_clientJobSelect)
+          .eq('service_request_id', serviceRequestId)
+          .maybeSingle();
+
+      if (data == null) return null;
+
+      final model = ServiceJobModel.fromJson(data);
+      final sortedItems = List<ServiceWorkItemModel>.from(model.workItems)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final sortedHistory = List<ServiceJobStatusHistoryModel>.from(model.statusHistory)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      return model.copyWith(
+        workItems: sortedItems,
+        statusHistory: sortedHistory,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<ServiceJobStatusHistoryModel>> fetchJobStatusHistory(String jobId) async {
+    try {
+      final data = await _client
+          .from('service_job_status_history')
+          .select('*')
+          .eq('service_job_id', jobId)
+          .order('created_at', ascending: true);
+
+      return (data as List)
+          .map((item) => ServiceJobStatusHistoryModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  RealtimeChannel subscribeToClientJobs(void Function() onJobChanged) {
+    return _client
+        .channel('public:client_service_jobs')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'service_jobs',
+          callback: (payload) {
+            onJobChanged();
+          },
+        )
+        .subscribe();
   }
 }
 

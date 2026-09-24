@@ -6,6 +6,7 @@ import 'package:autotricks/data/models/activity_item_model.dart';
 import 'package:autotricks/data/models/client_model.dart';
 import 'package:autotricks/data/models/product_model.dart';
 import 'package:autotricks/data/models/quotation_model.dart';
+import 'package:autotricks/data/models/service_job_model.dart';
 import 'package:autotricks/data/models/service_job_summary_model.dart';
 import 'package:autotricks/data/models/service_request_model.dart';
 import 'package:autotricks/data/models/vehicle_model.dart';
@@ -15,6 +16,7 @@ import 'package:autotricks/data/repositories/client_vehicle_repository.dart';
 import 'package:autotricks/data/repositories/home_repository.dart';
 import 'package:autotricks/data/repositories/products_repository.dart';
 import 'package:autotricks/data/repositories/quotations_repository.dart';
+import 'package:autotricks/data/repositories/service_jobs_repository.dart';
 import 'package:autotricks/data/repositories/service_requests_repository.dart';
 
 class MockAuthRepository implements AuthRepository {
@@ -2093,6 +2095,506 @@ class MockClientPortalRepository implements ClientPortalRepository {
   }) async {
     return 'https://mock.storage/unsigned.pdf';
   }
+
+  // Day 12 Service Job Mock Data & Methods
+  List<ServiceJobModel> serviceJobs = [];
+
+  static ServiceJobModel createSampleJob({
+    String id = 'job-client-1',
+    String jobNumber = 'JOB-202609-0001',
+    String serviceRequestId = 'sr-client-3',
+    String status = 'WORK_IN_PROGRESS',
+  }) {
+    return ServiceJobModel(
+      id: id,
+      jobNumber: jobNumber,
+      serviceRequestId: serviceRequestId,
+      quotationRevisionId: 'rev-client-1',
+      vehicleId: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+      status: status,
+      scheduledAt: DateTime.now().subtract(const Duration(days: 1)),
+      startedAt: DateTime.now().subtract(const Duration(hours: 4)),
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      updatedAt: DateTime.now(),
+      vehicle: const VehicleModel(
+        id: 'edd54d25-b67b-4ac7-bd72-b5dc4daf8b24',
+        clientId: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+      ),
+      client: const ClientModel(
+        id: '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+        fullName: 'Rahul Kumar',
+        phone: '+91 98765 43210',
+        email: 'rahul.kumar@example.com',
+      ),
+      workItems: [
+        ServiceWorkItemModel(
+          id: 'wi-1',
+          serviceJobId: id,
+          name: 'Synthetic oil change & filter replacement',
+          source: 'QUOTATION',
+          status: 'COMPLETED',
+          createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+        ServiceWorkItemModel(
+          id: 'wi-2',
+          serviceJobId: id,
+          name: 'Front brake pads inspection & cleaning',
+          source: 'QUOTATION',
+          status: 'IN_PROGRESS',
+          createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
+        ),
+      ],
+      statusHistory: [
+        ServiceJobStatusHistoryModel(
+          id: 'hist-1',
+          serviceJobId: id,
+          fromStatus: null,
+          toStatus: 'SCHEDULED',
+          note: 'Job scheduled by workshop admin',
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        ),
+        ServiceJobStatusHistoryModel(
+          id: 'hist-2',
+          serviceJobId: id,
+          fromStatus: 'SCHEDULED',
+          toStatus: 'VEHICLE_RECEIVED',
+          note: 'Vehicle received at workshop bay',
+          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+        ),
+        ServiceJobStatusHistoryModel(
+          id: 'hist-3',
+          serviceJobId: id,
+          fromStatus: 'VEHICLE_RECEIVED',
+          toStatus: 'INSPECTION',
+          note: 'Multi-point inspection in progress',
+          createdAt: DateTime.now().subtract(const Duration(hours: 4, minutes: 30)),
+        ),
+        ServiceJobStatusHistoryModel(
+          id: 'hist-4',
+          serviceJobId: id,
+          fromStatus: 'INSPECTION',
+          toStatus: 'WORK_IN_PROGRESS',
+          note: 'Technician began scheduled service tasks',
+          createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+        ),
+      ],
+    );
+  }
+
+  void Function()? onJobChangedListener;
+
+  void triggerJobChanged() {
+    onJobChangedListener?.call();
+  }
+
+  @override
+  Future<ServiceJobModel?> fetchActiveServiceJob() async {
+    try {
+      return serviceJobs.firstWhere(
+        (job) => job.status != 'COMPLETED' && job.status != 'CANCELLED',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<ServiceJobModel> getServiceJobById(String jobId) async {
+    final match = serviceJobs.where((j) => j.id == jobId).toList();
+    if (match.isEmpty) {
+      throw Exception('Service job not found: $jobId');
+    }
+    return match.first;
+  }
+
+  @override
+  Future<ServiceJobModel?> getServiceJobByRequestId(String serviceRequestId) async {
+    try {
+      return serviceJobs.firstWhere((j) => j.serviceRequestId == serviceRequestId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<ServiceJobStatusHistoryModel>> fetchJobStatusHistory(String jobId) async {
+    final job = await getServiceJobById(jobId);
+    return job.statusHistory;
+  }
+
+  @override
+  RealtimeChannel subscribeToClientJobs(void Function() onJobChanged) {
+    onJobChangedListener = onJobChanged;
+    return FakeRealtimeChannel();
+  }
 }
+
+class FakeRealtimeChannel extends RealtimeChannel {
+  FakeRealtimeChannel() : super('dummy', RealtimeClient('http://localhost'));
+
+  @override
+  RealtimeChannel subscribe([void Function(RealtimeSubscribeStatus status, Object? error)? callback, Duration? timeout]) {
+    return this;
+  }
+
+  @override
+  Future<String> unsubscribe([Duration? timeout]) async {
+    return 'ok';
+  }
+}
+
+class MockServiceJobsRepository implements ServiceJobsRepository {
+  List<ServiceJobModel> jobs = [
+    ServiceJobModel(
+      id: 'job-admin-1',
+      jobNumber: 'JOB-202609-0001',
+      serviceRequestId: 'sr-1',
+      quotationRevisionId: 'rev-1',
+      vehicleId: 'v-1',
+      status: 'SCHEDULED',
+      scheduledAt: DateTime.now().add(const Duration(days: 1)),
+      startedAt: null,
+      completedAt: null,
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      vehicle: const VehicleModel(
+        id: 'v-1',
+        clientId: 'c-1',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+      ),
+      client: const ClientModel(
+        id: 'c-1',
+        fullName: 'Vikram Mehta',
+        phone: '+91 98765 43210',
+        email: 'vikram.mehta@autotricks.in',
+      ),
+      workItems: [
+        ServiceWorkItemModel(
+          id: 'wi-admin-1',
+          serviceJobId: 'job-admin-1',
+          name: 'Periodic Maintenance Service',
+          description: 'Standard 20k km service checklist',
+          source: 'QUOTATION',
+          status: 'PENDING',
+          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+        ServiceWorkItemModel(
+          id: 'wi-admin-2',
+          serviceJobId: 'job-admin-1',
+          name: 'Front Brake Pads Replacement',
+          description: 'Replace worn front brake pads',
+          source: 'QUOTATION',
+          status: 'PENDING',
+          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+      ],
+      statusHistory: [
+        ServiceJobStatusHistoryModel(
+          id: 'hist-admin-1',
+          serviceJobId: 'job-admin-1',
+          fromStatus: null,
+          toStatus: 'SCHEDULED',
+          note: 'Job created from accepted quotation',
+          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+      ],
+    ),
+  ];
+
+  static const List<String> statusSequence = [
+    'SCHEDULED',
+    'VEHICLE_RECEIVED',
+    'INSPECTION',
+    'WORK_IN_PROGRESS',
+    'QUALITY_CHECK',
+    'READY_FOR_DELIVERY',
+    'COMPLETED',
+  ];
+
+  @override
+  Future<List<ServiceJobModel>> fetchServiceJobs({
+    String? statusFilter,
+    String? searchQuery,
+  }) async {
+    var result = List<ServiceJobModel>.from(jobs);
+
+    if (statusFilter != null && statusFilter.isNotEmpty && statusFilter.toUpperCase() != 'ALL') {
+      result = result.where((j) => j.status.toUpperCase() == statusFilter.toUpperCase()).toList();
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.trim().toLowerCase();
+      result = result.where((j) {
+        return j.jobNumber.toLowerCase().contains(q) ||
+            j.vehicleTitle.toLowerCase().contains(q) ||
+            j.vehiclePlate.toLowerCase().contains(q) ||
+            j.customerName.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    return result;
+  }
+
+  @override
+  Future<ServiceJobModel> getServiceJobById(String id) async {
+    final match = jobs.where((j) => j.id == id).toList();
+    if (match.isEmpty) {
+      throw Exception('Service job not found: $id');
+    }
+    return match.first;
+  }
+
+  @override
+  Future<ServiceJobModel?> getServiceJobByRequestId(String requestId) async {
+    try {
+      return jobs.firstWhere((j) => j.serviceRequestId == requestId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<ServiceJobModel?> getServiceJobByRevisionId(String revisionId) async {
+    try {
+      return jobs.firstWhere((j) => j.quotationRevisionId == revisionId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> createServiceJob({
+    required String quotationRevisionId,
+    DateTime? scheduledAt,
+  }) async {
+    // Check if revision already has a job
+    final existing = jobs.where((j) => j.quotationRevisionId == quotationRevisionId).toList();
+    if (existing.isNotEmpty) {
+      return {
+        'success': true,
+        'job_id': existing.first.id,
+        'job_number': existing.first.jobNumber,
+        'status': existing.first.status,
+      };
+    }
+
+    final newJobId = 'job-${DateTime.now().millisecondsSinceEpoch}';
+    final newJobNumber = 'JOB-${DateTime.now().year}${DateTime.now().month.toString().padLeft(2, '0')}-${(jobs.length + 1).toString().padLeft(4, '0')}';
+    final now = DateTime.now();
+
+    final newJob = ServiceJobModel(
+      id: newJobId,
+      jobNumber: newJobNumber,
+      serviceRequestId: 'sr-from-rev',
+      quotationRevisionId: quotationRevisionId,
+      vehicleId: 'v-1',
+      status: 'SCHEDULED',
+      scheduledAt: scheduledAt ?? now.add(const Duration(days: 1)),
+      startedAt: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      vehicle: const VehicleModel(
+        id: 'v-1',
+        clientId: 'c-1',
+        make: 'Honda',
+        model: 'City',
+        manufacturingYear: 2022,
+        registrationNumber: 'KA-01-MJ-4412',
+      ),
+      client: const ClientModel(
+        id: 'c-1',
+        fullName: 'Rahul Kumar',
+        phone: '+91 98765 43210',
+        email: 'rahul.kumar@example.com',
+      ),
+      workItems: [
+        ServiceWorkItemModel(
+          id: 'wi-${now.millisecondsSinceEpoch}-1',
+          serviceJobId: newJobId,
+          name: 'Scheduled Service Task',
+          source: 'QUOTATION',
+          status: 'PENDING',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
+      statusHistory: [
+        ServiceJobStatusHistoryModel(
+          id: 'hist-${now.millisecondsSinceEpoch}',
+          serviceJobId: newJobId,
+          fromStatus: null,
+          toStatus: 'SCHEDULED',
+          note: 'Service Job created from accepted quotation revision',
+          createdAt: now,
+        ),
+      ],
+    );
+
+    jobs.add(newJob);
+
+    return {
+      'success': true,
+      'job_id': newJobId,
+      'job_number': newJobNumber,
+      'status': 'SCHEDULED',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateJobStatus({
+    required String jobId,
+    required String status,
+    String? note,
+  }) async {
+    final jobIndex = jobs.indexWhere((j) => j.id == jobId);
+    if (jobIndex == -1) {
+      throw Exception('Service job not found: $jobId');
+    }
+
+    final currentJob = jobs[jobIndex];
+    final currentStatus = currentJob.status.toUpperCase();
+    final targetStatus = status.toUpperCase();
+
+    if (currentStatus == targetStatus) {
+      return {'success': true, 'status': currentStatus};
+    }
+
+    // Handle CANCELLED
+    if (targetStatus == 'CANCELLED') {
+      if (currentStatus == 'COMPLETED') {
+        throw Exception('Cannot cancel completed job');
+      }
+    } else {
+      // Strictly sequential check
+      final curIdx = statusSequence.indexOf(currentStatus);
+      final tgtIdx = statusSequence.indexOf(targetStatus);
+
+      if (curIdx == -1 || tgtIdx == -1) {
+        throw Exception('Invalid status: $currentStatus -> $targetStatus');
+      }
+
+      if (tgtIdx != curIdx + 1) {
+        throw Exception('Invalid status transition from $currentStatus to $targetStatus. Statuses must progress strictly sequentially.');
+      }
+
+      // Check all work items if COMPLETED
+      if (targetStatus == 'COMPLETED') {
+        final hasIncomplete = currentJob.workItems.any(
+          (w) => w.status.toUpperCase() != 'COMPLETED' && w.status.toUpperCase() != 'CANCELLED',
+        );
+        if (hasIncomplete) {
+          throw Exception('Cannot complete service job while active work items are incomplete.');
+        }
+      }
+    }
+
+    final now = DateTime.now();
+    final newHistoryItem = ServiceJobStatusHistoryModel(
+      id: 'hist-${now.millisecondsSinceEpoch}',
+      serviceJobId: jobId,
+      fromStatus: currentStatus,
+      toStatus: targetStatus,
+      note: note,
+      createdAt: now,
+    );
+
+    final updatedHistory = List<ServiceJobStatusHistoryModel>.from(currentJob.statusHistory)
+      ..add(newHistoryItem);
+
+    final updatedJob = currentJob.copyWith(
+      status: targetStatus,
+      startedAt: (targetStatus == 'WORK_IN_PROGRESS' && currentJob.startedAt == null) ? now : currentJob.startedAt,
+      completedAt: targetStatus == 'COMPLETED' ? now : currentJob.completedAt,
+      statusHistory: updatedHistory,
+    );
+
+    jobs[jobIndex] = updatedJob;
+
+    return {
+      'success': true,
+      'status': targetStatus,
+    };
+  }
+
+  @override
+  Future<List<ServiceJobStatusHistoryModel>> fetchJobStatusHistory(String jobId) async {
+    final job = await getServiceJobById(jobId);
+    return job.statusHistory;
+  }
+
+  @override
+  Future<List<ServiceWorkItemModel>> fetchJobWorkItems(String jobId) async {
+    final job = await getServiceJobById(jobId);
+    return job.workItems;
+  }
+
+  @override
+  Future<void> updateWorkItemStatus({
+    required String itemId,
+    required String status,
+  }) async {
+    for (int i = 0; i < jobs.length; i++) {
+      final job = jobs[i];
+      final itemIdx = job.workItems.indexWhere((w) => w.id == itemId);
+      if (itemIdx != -1) {
+        final currentItem = job.workItems[itemIdx];
+        final updatedItem = ServiceWorkItemModel(
+          id: currentItem.id,
+          serviceJobId: currentItem.serviceJobId,
+          name: currentItem.name,
+          description: currentItem.description,
+          source: currentItem.source,
+          status: status,
+          createdAt: currentItem.createdAt,
+          updatedAt: DateTime.now(),
+        );
+
+        final updatedList = List<ServiceWorkItemModel>.from(job.workItems);
+        updatedList[itemIdx] = updatedItem;
+
+        jobs[i] = job.copyWith(workItems: updatedList);
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> completeAllWorkItems(String jobId) async {
+    final jobIndex = jobs.indexWhere((j) => j.id == jobId);
+    if (jobIndex != -1) {
+      final job = jobs[jobIndex];
+      final updatedList = job.workItems.map((w) {
+        if (w.status != 'COMPLETED' && w.status != 'CANCELLED') {
+          return ServiceWorkItemModel(
+            id: w.id,
+            serviceJobId: w.serviceJobId,
+            name: w.name,
+            description: w.description,
+            source: w.source,
+            status: 'COMPLETED',
+            createdAt: w.createdAt,
+            updatedAt: DateTime.now(),
+          );
+        }
+        return w;
+      }).toList();
+
+      jobs[jobIndex] = job.copyWith(workItems: updatedList);
+    }
+  }
+}
+
 
 

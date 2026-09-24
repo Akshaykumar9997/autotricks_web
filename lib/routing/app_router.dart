@@ -26,6 +26,7 @@ import '../features/quotes/screens/edit_quote_revision_screen.dart';
 import '../features/quotes/screens/quote_change_requests_screen.dart';
 import '../features/quotes/screens/quote_detail_screen.dart';
 import '../features/quotes/screens/quote_list_screen.dart';
+import '../features/service_jobs/screens/service_job_detail_screen.dart';
 import '../features/service_requests/screens/create_service_request_screen.dart';
 import '../features/service_requests/screens/service_request_detail_screen.dart';
 import '../features/service_requests/screens/service_requests_list_screen.dart';
@@ -270,6 +271,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             quotationId: id,
             changeRequestId: requestId,
           );
+        },
+      ),
+      // Admin Service Jobs (Day 12)
+      GoRoute(
+        path: '/admin/jobs/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ServiceJobDetailScreen(jobId: id);
         },
       ),
     ],

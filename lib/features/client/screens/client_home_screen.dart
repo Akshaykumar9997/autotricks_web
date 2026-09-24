@@ -14,7 +14,9 @@ import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_radius.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
+import '../../../data/models/service_job_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../components/service_progress_tracker.dart';
 import '../providers/client_portal_provider.dart';
 import '../utils/client_status_helper.dart';
 
@@ -35,9 +37,11 @@ class ClientHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(clientRealtimeJobsProvider);
     final authState = ref.watch(authProvider);
     final profileAsync = ref.watch(clientProfileProvider);
     final vehiclesAsync = ref.watch(clientVehiclesProvider);
+    final activeJobAsync = ref.watch(clientActiveJobProvider);
     final activeRequestAsync = ref.watch(clientActiveRequestProvider);
     final allRequestsAsync = ref.watch(clientServiceRequestsProvider);
     final quotesAsync = ref.watch(clientQuotationsProvider);
@@ -89,6 +93,7 @@ class ClientHomeScreen extends ConsumerWidget {
           ref.invalidate(clientVehiclesProvider);
           ref.invalidate(clientServiceRequestsProvider);
           ref.invalidate(clientQuotationsProvider);
+          ref.invalidate(clientActiveJobProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -152,25 +157,64 @@ class ClientHomeScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Section: Current Service Request
-              Text(
-                'CURRENT SERVICE REQUEST',
-                style: AppTypography.labelMd.copyWith(
-                  color: AppColors.textMuted,
-                  letterSpacing: 1.0,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              activeRequestAsync.when(
-                data: (ServiceRequestModel? activeSr) => activeSr != null
-                    ? _buildActiveRequestCard(context, activeSr)
-                    : _buildNoActiveRequestCard(context),
+              // Section: Active Service or Current Service Request (Day 12 Section 8)
+              activeJobAsync.when(
+                data: (ServiceJobModel? job) {
+                  if (job != null && job.isActive) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'YOUR ACTIVE SERVICE',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.textMuted,
+                            letterSpacing: 1.0,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        _buildActiveServiceJobCard(context, job),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'CURRENT SERVICE REQUEST',
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.textMuted,
+                          letterSpacing: 1.0,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      activeRequestAsync.when(
+                        data: (ServiceRequestModel? activeSr) => activeSr != null
+                            ? _buildActiveRequestCard(context, activeSr)
+                            : _buildNoActiveRequestCard(context),
+                        loading: () => const AutoSkeleton(height: 180),
+                        error: (err, _) => AutoErrorState(
+                          title: 'Unable to Load Status',
+                          message: 'Unable to load active service status.',
+                          onRetry: () => ref.invalidate(clientServiceRequestsProvider),
+                        ),
+                      ),
+                    ],
+                  );
+                },
                 loading: () => const AutoSkeleton(height: 180),
-                error: (err, _) => AutoErrorState(
-                  title: 'Unable to Load Status',
-                  message: 'Unable to load active service status.',
-                  onRetry: () => ref.invalidate(clientServiceRequestsProvider),
+                error: (err, stack) => activeRequestAsync.when(
+                  data: (ServiceRequestModel? activeSr) => activeSr != null
+                      ? _buildActiveRequestCard(context, activeSr)
+                      : _buildNoActiveRequestCard(context),
+                  loading: () => const AutoSkeleton(height: 180),
+                  error: (err, _) => AutoErrorState(
+                    title: 'Unable to Load Status',
+                    message: 'Unable to load active service status.',
+                    onRetry: () => ref.invalidate(clientServiceRequestsProvider),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -637,6 +681,171 @@ class ClientHomeScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildActiveServiceJobCard(BuildContext context, ServiceJobModel job) {
+    final statusColor = ServiceProgressTracker.getStatusColor(job.status);
+    final statusDisplayName = ServiceProgressTracker.stepLabels[job.status.toUpperCase()] ?? job.status;
+
+    return AutoCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Job number & Status Badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface2,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: const Icon(
+                        Icons.build_rounded,
+                        color: AppColors.primary,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        'JOB #${job.jobNumber}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              AutoBadge(
+                label: statusDisplayName,
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Vehicle Title & Registration
+          Text(
+            job.vehicleTitle,
+            style: AppTypography.bodyLgEmphasis.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (job.vehiclePlate.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                job.vehiclePlate,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+
+          // Prominent Status Callout (Day 12 Section 8)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: AppRadius.radiusMd,
+              border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: statusColor, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Current Status: $statusDisplayName',
+                    style: AppTypography.bodyMdEmphasis.copyWith(color: statusColor),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Visual Progress Tracker (Day 12 Section 8)
+          Text(
+            'SERVICE PROGRESS',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textMuted,
+              letterSpacing: 1.0,
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ServiceProgressTracker(
+            currentStatus: job.status,
+            isCompact: true,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Footer: Last updated & View Details action
+          const Divider(color: AppColors.borderSubtle, height: 1),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  'Updated ${DateFormatter.timeAgo(job.updatedAt)}',
+                  style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              InkWell(
+                onTap: () => context.push('/client/services/${job.serviceRequestId}'),
+                borderRadius: AppRadius.radiusSm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        'View Details',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActiveRequestCard(BuildContext context, ServiceRequestModel sr) {
     final statusInfo = ClientStatusHelper.getStatusInfo(
       requestStatus: sr.status,
@@ -777,6 +986,23 @@ class ClientHomeScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (sr.status.toUpperCase() == 'CONVERTED_TO_JOB') ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'SERVICE PROGRESS',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textMuted,
+                letterSpacing: 1.0,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ServiceProgressTracker(
+              currentStatus: sr.jobStatus ?? 'SCHEDULED',
+              isCompact: true,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
 
           // View Request Link

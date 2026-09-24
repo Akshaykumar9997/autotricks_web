@@ -15,8 +15,10 @@ import '../../../design_system/components/auto_timeline.dart';
 import '../../../design_system/components/auto_toast.dart';
 import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_radius.dart';
+import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import '../providers/quotes_provider.dart';
+import '../../service_jobs/providers/service_jobs_provider.dart';
 
 /// A13 — Quote Detail Screen conforming to approved Stitch A13 and user corrections.
 class QuoteDetailScreen extends ConsumerStatefulWidget {
@@ -1420,28 +1422,107 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         );
 
       case 'ACCEPTED':
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.success.withValues(alpha: 0.1),
-            borderRadius: AppRadius.radiusMd,
-            border: Border.all(color: AppColors.success.withValues(alpha: 0.3), width: 1),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.verified_outlined, color: AppColors.success, size: 18),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Quotation Accepted · Locked',
-                  style: AppTypography.bodyMediumEmphasis.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.bold,
+        final jobAsync = ref.watch(serviceJobForRevisionProvider(revision.id));
+        return jobAsync.when(
+          data: (existingJob) {
+            if (existingJob != null) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: AppRadius.radiusMd,
+                      border: Border.all(color: AppColors.success.withValues(alpha: 0.3), width: 1),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.verified_outlined, color: AppColors.success, size: 16),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Quotation Accepted · Service Job Active',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 8),
+                  AutoButton(
+                    label: 'View Service Job (${existingJob.jobNumber})',
+                    icon: const Icon(Icons.build_circle_outlined, size: 18),
+                    onPressed: () => context.push('/admin/jobs/${existingJob.id}'),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.radiusMd,
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.verified_outlined, color: AppColors.success, size: 16),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Quotation Accepted · Locked',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 8),
+                AutoButton(
+                  label: 'Create Service Job',
+                  icon: const Icon(Icons.build_rounded, size: 18),
+                  onPressed: () => _showCreateServiceJobDialog(context, ref, quote, revision),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+              ),
+            ),
+          ),
+          error: (err, stack) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AutoButton(
+                label: 'Create Service Job',
+                icon: const Icon(Icons.build_rounded, size: 18),
+                onPressed: () => _showCreateServiceJobDialog(context, ref, quote, revision),
               ),
             ],
           ),
@@ -1628,5 +1709,218 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       return 'This quotation already has a signed revision.';
     }
     return 'Unable to send this quote. Please try again.';
+  }
+
+  Future<void> _showCreateServiceJobDialog(
+    BuildContext context,
+    WidgetRef ref,
+    QuotationModel quote,
+    QuotationRevisionModel revision,
+  ) async {
+    DateTime scheduledDate = DateTime.now().add(const Duration(hours: 2));
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface1,
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+              title: Row(
+                children: [
+                  const Icon(Icons.build_circle_rounded, color: AppColors.primary, size: 24),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      'Create Service Job',
+                      style: AppTypography.headlineSm.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Confirm Service Job creation from the accepted quotation snapshot.',
+                      style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface2,
+                        borderRadius: AppRadius.radiusMd,
+                        border: Border.all(color: AppColors.borderSubtle),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildModalRow('Customer', quote.customerName),
+                          if (quote.customerPhone.isNotEmpty)
+                            _buildModalRow('Phone', quote.customerPhone),
+                          const Divider(color: AppColors.borderSubtle, height: 12),
+                          _buildModalRow('Vehicle', quote.vehicleTitle),
+                          _buildModalRow('Registration', quote.vehiclePlate),
+                          const Divider(color: AppColors.borderSubtle, height: 12),
+                          _buildModalRow('Service Request', '#${quote.requestNumber}'),
+                          if (quote.serviceSummary.isNotEmpty)
+                            _buildModalRow('Requirement', quote.serviceSummary),
+                          const Divider(color: AppColors.borderSubtle, height: 12),
+                          _buildModalRow('Quotation', '#${quote.quotationNumber} (Rev ${revision.revisionNumber})'),
+                          _buildModalRow('Accepted Total', 'Rs. ${revision.total.toStringAsFixed(2)}'),
+                          _buildModalRow('Items Included', '${revision.items.length} Quoted Items'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Schedule Service Date:',
+                      style: AppTypography.labelSm.copyWith(color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: scheduledDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                          lastDate: DateTime.now().add(const Duration(days: 60)),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: AppColors.primary,
+                                  surface: AppColors.surface1,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            scheduledDate = DateTime(
+                              picked.year,
+                              picked.month,
+                              picked.day,
+                              scheduledDate.hour,
+                              scheduledDate.minute,
+                            );
+                          });
+                        }
+                      },
+                      borderRadius: AppRadius.radiusMd,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface2,
+                          borderRadius: AppRadius.radiusMd,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormatter.formatDate(scheduledDate),
+                              style: AppTypography.bodyMediumEmphasis.copyWith(color: AppColors.textPrimary),
+                            ),
+                            const Spacer(),
+                            Text('Change', style: AppTypography.caption.copyWith(color: AppColors.primary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Confirm & Create Job'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusMd),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final jobsRepo = ref.read(serviceJobsRepositoryProvider);
+        final result = await jobsRepo.createServiceJob(
+          quotationRevisionId: revision.id,
+          scheduledAt: scheduledDate,
+        );
+
+        ref.invalidate(serviceJobForRevisionProvider(revision.id));
+        ref.invalidate(serviceJobForRequestProvider(quote.serviceRequestId));
+        ref.invalidate(serviceJobsListProvider);
+        ref.invalidate(quotationDetailProvider(quote.id));
+
+        final jobId = result['service_job_id'] as String;
+        final jobNum = result['job_number'] as String? ?? 'New Job';
+
+        if (context.mounted) {
+          AutoToast.showSuccess(context, 'Service Job #$jobNum created successfully!');
+          context.push('/admin/jobs/$jobId');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          if (e.toString().contains('already exists')) {
+            AutoToast.showInfo(context, 'A service job already exists for this request.');
+            try {
+              final jobsRepo = ref.read(serviceJobsRepositoryProvider);
+              final existing = await jobsRepo.getServiceJobByRequestId(quote.serviceRequestId);
+              if (existing != null && context.mounted) {
+                context.push('/admin/jobs/${existing.id}');
+                return;
+              }
+            } catch (_) {}
+          } else {
+            AutoToast.showError(context, 'Failed to create service job: $e');
+          }
+        }
+      }
+    }
+  }
+
+  Widget _buildModalRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTypography.bodyMdEmphasis.copyWith(color: AppColors.textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

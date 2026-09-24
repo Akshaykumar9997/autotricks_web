@@ -16,6 +16,7 @@ import '../../../design_system/tokens/app_radius.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import '../../../data/models/service_request_model.dart';
 import '../../quotes/providers/quotes_provider.dart';
+import '../../service_jobs/providers/service_jobs_provider.dart';
 import '../providers/service_requests_provider.dart';
 
 /// A04 — Service Request Detail Screen conforming to approved Stitch A04.
@@ -95,9 +96,35 @@ class _ServiceRequestDetailScreenState
         if (mounted) setState(() => _isProcessing = false);
       }
     } else if (status == 'APPROVED') {
-      AutoToast.showInfo(context, 'Creating Service Job from approved quote.');
+      try {
+        setState(() => _isProcessing = true);
+        final quotesRepo = ref.read(quotationsRepositoryProvider);
+        final quote = await quotesRepo.getQuotationByServiceRequestId(sr.id);
+        if (quote != null) {
+          if (mounted) context.push('/admin/quotes/${quote.id}');
+        } else {
+          if (mounted) AutoToast.showError(context, 'No quotation found for this request.');
+        }
+      } catch (e) {
+        if (mounted) AutoToast.showError(context, 'Unable to open quotation: $e');
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
     } else if (status == 'CONVERTED_TO_JOB') {
-      AutoToast.showInfo(context, 'Navigating to Service Job.');
+      try {
+        setState(() => _isProcessing = true);
+        final jobsRepo = ref.read(serviceJobsRepositoryProvider);
+        final job = await jobsRepo.getServiceJobByRequestId(sr.id);
+        if (job != null) {
+          if (mounted) context.push('/admin/jobs/${job.id}');
+        } else {
+          if (mounted) AutoToast.showError(context, 'Service Job not found.');
+        }
+      } catch (e) {
+        if (mounted) AutoToast.showError(context, 'Unable to load service job: $e');
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
     }
   }
 

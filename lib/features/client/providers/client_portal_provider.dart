@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:autotricks/data/models/client_model.dart';
 import 'package:autotricks/data/models/quotation_model.dart';
+import 'package:autotricks/data/models/service_job_model.dart';
 import 'package:autotricks/data/models/service_request_model.dart';
 import 'package:autotricks/data/models/vehicle_model.dart';
 import 'package:autotricks/data/repositories/client_portal_repository.dart';
@@ -183,4 +184,52 @@ final clientQuotationForServiceRequestProvider =
   final repo = ref.watch(clientPortalRepositoryProvider);
   return repo.getQuotationByServiceRequestId(serviceRequestId);
 });
+
+// ============================================================
+// DAY 12: SERVICE JOB PROVIDERS
+// ============================================================
+
+/// Current active service job for the authenticated client (if any)
+final clientActiveJobProvider =
+    FutureProvider.autoDispose<ServiceJobModel?>((ref) async {
+  final repo = ref.watch(clientPortalRepositoryProvider);
+  return repo.fetchActiveServiceJob();
+});
+
+/// Detail of a specific service job for client
+final clientJobDetailProvider =
+    FutureProvider.autoDispose.family<ServiceJobModel, String>((ref, jobId) async {
+  final repo = ref.watch(clientPortalRepositoryProvider);
+  return repo.getServiceJobById(jobId);
+});
+
+/// Service job linked to a specific service request (if any)
+final clientJobForRequestProvider =
+    FutureProvider.autoDispose.family<ServiceJobModel?, String>((ref, requestId) async {
+  final repo = ref.watch(clientPortalRepositoryProvider);
+  return repo.getServiceJobByRequestId(requestId);
+});
+
+/// Status history for a specific service job
+final clientJobHistoryProvider =
+    FutureProvider.autoDispose.family<List<ServiceJobStatusHistoryModel>, String>((ref, jobId) async {
+  final repo = ref.watch(clientPortalRepositoryProvider);
+  return repo.fetchJobStatusHistory(jobId);
+});
+
+/// Subscription to realtime service job changes for client live updates.
+/// Auto-disposes channel on unmount, and auto-invalidates client job & request providers.
+final clientRealtimeJobsProvider = Provider.autoDispose<void>((ref) {
+  final repo = ref.watch(clientPortalRepositoryProvider);
+  final channel = repo.subscribeToClientJobs(() {
+    ref.invalidate(clientActiveJobProvider);
+    ref.invalidate(clientServiceRequestsProvider);
+    ref.invalidate(clientQuotationsProvider);
+  });
+
+  ref.onDispose(() {
+    channel.unsubscribe();
+  });
+});
+
 
