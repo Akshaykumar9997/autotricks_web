@@ -42,7 +42,17 @@ abstract class ServiceJobsRepository {
     required String status,
   });
 
-  /// Marks all non-completed/non-cancelled work items as COMPLETED before job closure.
+  /// Admin operation: creates an additional work item for a service job.
+  Future<Map<String, dynamic>> addAdditionalWork({
+    required String serviceJobId,
+    required String name,
+    required String description,
+    required num quantity,
+    required num finalValue,
+    num? approximateValue,
+  });
+
+  /// Marks all eligible work items (quotation and approved additional) as COMPLETED.
   Future<void> completeAllWorkItems(String jobId);
 }
 
@@ -327,13 +337,58 @@ class SupabaseServiceJobsRepository implements ServiceJobsRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> addAdditionalWork({
+    required String serviceJobId,
+    required String name,
+    required String description,
+    required num quantity,
+    required num finalValue,
+    num? approximateValue,
+  }) async {
+    try {
+      final params = <String, dynamic>{
+        'p_service_job_id': serviceJobId,
+        'p_name': name.trim(),
+        'p_description': description.trim(),
+        'p_quantity': quantity,
+        'p_final_value': finalValue,
+      };
+      if (approximateValue != null) {
+        params['p_approximate_value'] = approximateValue;
+      }
+
+      final response = await _client.rpc(
+        'admin_add_additional_work',
+        params: params,
+      );
+
+      return Map<String, dynamic>.from(response as Map);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> completeAllWorkItems(String jobId) async {
     try {
+      // Complete quotation items
       await _client
           .from('service_work_items')
           .update({'status': 'COMPLETED'})
           .eq('service_job_id', jobId)
-          .neq('status', 'CANCELLED');
+          .eq('source', 'QUOTATION')
+          .neq('status', 'CANCELLED')
+          .neq('status', 'COMPLETED');
+
+      // Complete approved additional work items (strictly excluding PENDING or REJECTED)
+      await _client
+          .from('service_work_items')
+          .update({'status': 'COMPLETED'})
+          .eq('service_job_id', jobId)
+          .eq('source', 'ADDITIONAL')
+          .eq('approval_status', 'APPROVED')
+          .neq('status', 'CANCELLED')
+          .neq('status', 'COMPLETED');
     } catch (e) {
       rethrow;
     }

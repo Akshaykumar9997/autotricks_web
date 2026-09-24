@@ -415,5 +415,12 @@ begin
   ) then
     alter publication supabase_realtime add table public.service_job_status_history;
   end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'service_work_items'
+  ) then
+    alter publication supabase_realtime add table public.service_work_items;
+  end if;
 end;
 $$;

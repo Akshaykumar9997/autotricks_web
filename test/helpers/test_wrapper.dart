@@ -7,6 +7,8 @@ import 'package:autotricks/features/home/providers/home_provider.dart';
 import 'package:autotricks/features/quotes/providers/quotes_provider.dart';
 import 'package:autotricks/features/service_jobs/providers/service_jobs_provider.dart';
 import 'package:autotricks/features/service_requests/providers/service_requests_provider.dart';
+import 'package:autotricks/data/repositories/notifications_repository.dart';
+import 'package:autotricks/data/repositories/device_tokens_repository.dart';
 import 'mock_repositories.dart';
 
 Widget createTestWidget({
@@ -19,6 +21,8 @@ Widget createTestWidget({
   MockQuotationsRepository? quotationsRepo,
   MockClientPortalRepository? clientPortalRepo,
   MockServiceJobsRepository? serviceJobsRepo,
+  MockNotificationsRepository? notificationsRepo,
+  MockDeviceTokensRepository? deviceTokensRepo,
 }) {
   final effectiveOverrides = [
     authRepositoryProvider.overrideWithValue(authRepo ?? MockAuthRepository()),
@@ -28,6 +32,8 @@ Widget createTestWidget({
     quotationsRepositoryProvider.overrideWithValue(quotationsRepo ?? MockQuotationsRepository()),
     clientPortalRepositoryProvider.overrideWithValue(clientPortalRepo ?? MockClientPortalRepository()),
     serviceJobsRepositoryProvider.overrideWithValue(serviceJobsRepo ?? MockServiceJobsRepository()),
+    notificationsRepositoryProvider.overrideWithValue(notificationsRepo ?? MockNotificationsRepository()),
+    deviceTokensRepositoryProvider.overrideWithValue(deviceTokensRepo ?? MockDeviceTokensRepository()),
     ...?overrides,
   ];
 

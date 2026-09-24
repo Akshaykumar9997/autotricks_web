@@ -132,12 +132,51 @@ class _ServiceJobDetailScreenState extends ConsumerState<ServiceJobDetailScreen>
   }
 
   Future<void> _handleTransition(ServiceJobModel job, String nextStatus) async {
+    // If completing job and pending additional work exists, block transition
+    if (nextStatus == 'COMPLETED' && job.hasPendingAdditionalWork) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surface1,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+          title: Row(
+            children: [
+              const Icon(Icons.block_rounded, color: AppColors.warning, size: 24),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Pending Additional Work',
+                  style: AppTypography.headlineSm.copyWith(color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Cannot complete the service job while additional work is awaiting client approval. All additional work items must be resolved (approved or rejected) before the job can be completed.',
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusMd),
+              ),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final noteController = TextEditingController();
     bool completeOpenItems = true;
 
     // Check if moving to COMPLETED and has open work items
     final hasOpenWorkItems = nextStatus == 'COMPLETED' &&
-        job.workItems.any((w) => w.status != 'COMPLETED' && w.status != 'CANCELLED');
+        job.workItems.any((w) => (w.isQuotation || w.isApproved) && w.status != 'COMPLETED' && w.status != 'CANCELLED');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -401,6 +440,10 @@ class _ServiceJobDetailScreenState extends ConsumerState<ServiceJobDetailScreen>
   }
 
   Future<void> _handleToggleWorkItem(ServiceWorkItemModel item) async {
+    if (item.isAdditional && !item.isApproved) {
+      AutoToast.showError(context, 'Additional work cannot be executed until approved by client.');
+      return;
+    }
     final nextStatus = item.status == 'COMPLETED' ? 'PENDING' : 'COMPLETED';
     setState(() => _isProcessing = true);
     try {
@@ -416,6 +459,260 @@ class _ServiceJobDetailScreenState extends ConsumerState<ServiceJobDetailScreen>
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _showAddAdditionalWorkDialog(ServiceJobModel job) async {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final quantityController = TextEditingController(text: '1');
+    final approxValueController = TextEditingController();
+    final finalValueController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface1,
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+              title: Row(
+                children: [
+                  const Icon(Icons.add_task_rounded, color: AppColors.primary, size: 24),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Add Additional Work',
+                      style: AppTypography.headlineSm.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.1),
+                            borderRadius: AppRadius.radiusSm,
+                            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: AppColors.info, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Additional work requires explicit client authorization before technicians can begin work.',
+                                  style: AppTypography.caption.copyWith(color: AppColors.textPrimary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text('Work / Part Name *', style: AppTypography.labelSm.copyWith(color: AppColors.textMuted)),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: nameController,
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Rear Brake Disc Replacement',
+                            hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.surface2,
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.radiusMd,
+                              borderSide: const BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter a name' : null,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text('Description / Justification *', style: AppTypography.labelSm.copyWith(color: AppColors.textMuted)),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: descriptionController,
+                          maxLines: 2,
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            hintText: 'Discovered during inspection; describe reason & scope...',
+                            hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.surface2,
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.radiusMd,
+                              borderSide: const BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter description / reason' : null,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Quantity *', style: AppTypography.labelSm.copyWith(color: AppColors.textMuted)),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: quantityController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+                                    decoration: InputDecoration(
+                                      hintText: '1',
+                                      hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                                      filled: true,
+                                      fillColor: AppColors.surface2,
+                                      border: OutlineInputBorder(
+                                        borderRadius: AppRadius.radiusMd,
+                                        borderSide: const BorderSide(color: AppColors.border),
+                                      ),
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) return 'Required';
+                                      final val = num.tryParse(v.trim());
+                                      if (val == null || val <= 0) return '> 0';
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Approx Value (₹)', style: AppTypography.labelSm.copyWith(color: AppColors.textMuted)),
+                                  const SizedBox(height: 4),
+                                  TextFormField(
+                                    controller: approxValueController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+                                    decoration: InputDecoration(
+                                      hintText: 'Optional',
+                                      hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                                      filled: true,
+                                      fillColor: AppColors.surface2,
+                                      border: OutlineInputBorder(
+                                        borderRadius: AppRadius.radiusMd,
+                                        borderSide: const BorderSide(color: AppColors.border),
+                                      ),
+                                    ),
+                                    validator: (v) {
+                                      if (v != null && v.trim().isNotEmpty) {
+                                        final val = num.tryParse(v.trim());
+                                        if (val == null || val < 0) return 'Invalid';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text('Quoted / Final Value (₹) *', style: AppTypography.labelSm.copyWith(color: AppColors.textMuted)),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: finalValueController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            hintText: 'Final price presented to client for approval',
+                            hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                            filled: true,
+                            fillColor: AppColors.surface2,
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.radiusMd,
+                              borderSide: const BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Please enter quoted amount';
+                            final val = num.tryParse(v.trim());
+                            if (val == null || val < 0) return 'Must be >= 0';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (formKey.currentState?.validate() == true) {
+                      Navigator.of(ctx).pop(true);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusMd),
+                  ),
+                  child: const Text('Add Work Item'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      setState(() => _isProcessing = true);
+      try {
+        final repo = ref.read(serviceJobsRepositoryProvider);
+        final qty = num.parse(quantityController.text.trim());
+        final fVal = num.parse(finalValueController.text.trim());
+        final aVal = approxValueController.text.trim().isNotEmpty
+            ? num.tryParse(approxValueController.text.trim())
+            : null;
+
+        await repo.addAdditionalWork(
+          serviceJobId: job.id,
+          name: nameController.text.trim(),
+          description: descriptionController.text.trim(),
+          quantity: qty,
+          finalValue: fVal,
+          approximateValue: aVal,
+        );
+
+        ref.invalidate(serviceJobDetailProvider(widget.jobId));
+        ref.invalidate(serviceJobsListProvider);
+
+        if (mounted) {
+          AutoToast.showSuccess(
+            context,
+            'Additional work created. Awaiting client authorization.',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          AutoToast.showError(context, 'Failed to add additional work: $e');
+        }
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
     }
   }
 
@@ -908,47 +1205,278 @@ class _ServiceJobDetailScreenState extends ConsumerState<ServiceJobDetailScreen>
     );
   }
 
+  Widget _buildQuotationWorkItem(ServiceJobModel job, ServiceWorkItemModel item, bool isClosed) {
+    final isDone = item.status == 'COMPLETED';
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: IconButton(
+        icon: Icon(
+          isDone ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+          color: isDone ? AppColors.success : AppColors.textMuted,
+        ),
+        onPressed: isClosed || _isProcessing ? null : () => _handleToggleWorkItem(item),
+      ),
+      title: Text(
+        item.name,
+        style: AppTypography.bodyMediumEmphasis.copyWith(
+          color: isDone ? AppColors.textMuted : AppColors.textPrimary,
+          decoration: isDone ? TextDecoration.lineThrough : null,
+        ),
+      ),
+      subtitle: Text(
+        'Qty: ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 1)}${item.description != null && item.description!.isNotEmpty ? " · ${item.description}" : ""}${item.finalValue != null ? " · ₹${item.finalValue!.toStringAsFixed(2)}" : ""}',
+        style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+      ),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: (isDone ? AppColors.success : AppColors.info).withValues(alpha: 0.15),
+          borderRadius: AppRadius.radiusXs,
+        ),
+        child: Text(
+          item.status,
+          style: AppTypography.caption.copyWith(
+            color: isDone ? AppColors.success : AppColors.info,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdditionalWorkItem(ServiceJobModel job, ServiceWorkItemModel item, bool isClosed) {
+    final isDone = item.status == 'COMPLETED';
+    final isPending = item.isApprovalPending;
+    final isApproved = item.isApproved;
+    final isRejected = item.isRejected;
+
+    Widget leadingWidget;
+    if (isPending) {
+      leadingWidget = const Tooltip(
+        message: 'Awaiting client approval',
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Icon(Icons.lock_clock_outlined, color: AppColors.warning, size: 22),
+        ),
+      );
+    } else if (isRejected) {
+      leadingWidget = const Tooltip(
+        message: 'Rejected by client',
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Icon(Icons.block_rounded, color: AppColors.danger, size: 22),
+        ),
+      );
+    } else {
+      leadingWidget = IconButton(
+        icon: Icon(
+          isDone ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+          color: isDone ? AppColors.success : AppColors.textMuted,
+        ),
+        onPressed: isClosed || _isProcessing ? null : () => _handleToggleWorkItem(item),
+      );
+    }
+
+    Color approvalBadgeColor;
+    String approvalBadgeText;
+    if (isPending) {
+      approvalBadgeColor = AppColors.warning;
+      approvalBadgeText = 'PENDING CLIENT APPROVAL';
+    } else if (isApproved) {
+      approvalBadgeColor = AppColors.success;
+      approvalBadgeText = 'APPROVED';
+    } else {
+      approvalBadgeColor = AppColors.danger;
+      approvalBadgeText = 'REJECTED';
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface2,
+        borderRadius: AppRadius.radiusMd,
+        border: Border.all(
+          color: isPending
+              ? AppColors.warning.withValues(alpha: 0.3)
+              : isRejected
+                  ? AppColors.danger.withValues(alpha: 0.3)
+                  : AppColors.borderSubtle,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leadingWidget,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            style: AppTypography.bodyMediumEmphasis.copyWith(
+                              color: isRejected
+                                  ? AppColors.textMuted
+                                  : isDone
+                                      ? AppColors.textMuted
+                                      : AppColors.textPrimary,
+                              decoration: isDone ? TextDecoration.lineThrough : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: approvalBadgeColor.withValues(alpha: 0.15),
+                            borderRadius: AppRadius.radiusXs,
+                            border: Border.all(color: approvalBadgeColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            approvalBadgeText,
+                            style: AppTypography.caption.copyWith(
+                              color: approvalBadgeColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (item.description != null && item.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.description!,
+                        style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: 2,
+                      children: [
+                        Text(
+                          'Qty: ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 1)}',
+                          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                        ),
+                        if (item.approximateValue != null)
+                          Text(
+                            'Approx: ₹${item.approximateValue!.toStringAsFixed(2)}',
+                            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                          ),
+                        Text(
+                          'Quoted: ₹${item.finalValue?.toStringAsFixed(2) ?? '0.00'}',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (item.approvalNote != null && item.approvalNote!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Client Note: "${item.approvalNote}"',
+                        style: AppTypography.caption.copyWith(
+                          color: isApproved ? AppColors.success : AppColors.danger,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                    if (item.decisionAt != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Decided: ${DateFormatter.formatDateTime(item.decisionAt!)}',
+                        style: AppTypography.caption.copyWith(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWorkItemsCard(ServiceJobModel job) {
     final isClosed = job.isCompleted || job.isCancelled;
+    final canAddAdditional = job.status == 'INSPECTION' || job.status == 'WORK_IN_PROGRESS';
+    final quotationItems = job.quotationWorkItems;
+    final additionalItems = job.additionalWorkItems;
+    final hasEligibleOpenItems = job.workItems.any((w) => (w.isQuotation || w.isApproved) && w.status != 'COMPLETED');
 
     return AutoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'WORK ITEMS (${job.workItems.length})',
-                style: AppTypography.labelMd.copyWith(
-                  color: AppColors.textMuted,
-                  letterSpacing: 1.0,
-                  fontSize: 12,
-                ),
-              ),
-              if (!isClosed && job.workItems.any((w) => w.status != 'COMPLETED'))
-                TextButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : () async {
-                          setState(() => _isProcessing = true);
-                          try {
-                            final repo = ref.read(serviceJobsRepositoryProvider);
-                            await repo.completeAllWorkItems(job.id);
-                            ref.invalidate(serviceJobDetailProvider(widget.jobId));
-                            if (mounted) AutoToast.showSuccess(context, 'All work items marked complete.');
-                          } catch (e) {
-                            if (mounted) AutoToast.showError(context, e.toString());
-                          } finally {
-                            if (mounted) setState(() => _isProcessing = false);
-                          }
-                        },
-                  child: Text(
-                    'Complete All',
-                    style: AppTypography.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                Text(
+                  'WORK ITEMS (${job.workItems.length})',
+                  style: AppTypography.labelMd.copyWith(
+                    color: AppColors.textMuted,
+                    letterSpacing: 1.0,
+                    fontSize: 12,
                   ),
                 ),
-            ],
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (canAddAdditional)
+                      OutlinedButton.icon(
+                        onPressed: _isProcessing ? null : () => _showAddAdditionalWorkDialog(job),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text('Add Additional Work'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    if (!isClosed && hasEligibleOpenItems)
+                      TextButton(
+                        onPressed: _isProcessing
+                            ? null
+                            : () async {
+                                setState(() => _isProcessing = true);
+                                try {
+                                  final repo = ref.read(serviceJobsRepositoryProvider);
+                                  await repo.completeAllWorkItems(job.id);
+                                  ref.invalidate(serviceJobDetailProvider(widget.jobId));
+                                  if (mounted) AutoToast.showSuccess(context, 'All authorized work items marked complete.');
+                                } catch (e) {
+                                  if (mounted) AutoToast.showError(context, e.toString());
+                                } finally {
+                                  if (mounted) setState(() => _isProcessing = false);
+                                }
+                              },
+                        child: Text(
+                          'Complete All',
+                          style: AppTypography.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           if (job.workItems.isEmpty)
@@ -961,53 +1489,56 @@ class _ServiceJobDetailScreenState extends ConsumerState<ServiceJobDetailScreen>
                 ),
               ),
             )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: job.workItems.length,
-              separatorBuilder: (ctx, idx) => const Divider(color: AppColors.borderSubtle, height: 1),
-              itemBuilder: (context, index) {
-                final item = job.workItems[index];
-                final isDone = item.status == 'COMPLETED';
-
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: IconButton(
-                    icon: Icon(
-                      isDone ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                      color: isDone ? AppColors.success : AppColors.textMuted,
-                    ),
-                    onPressed: isClosed || _isProcessing ? null : () => _handleToggleWorkItem(item),
-                  ),
-                  title: Text(
-                    item.name,
-                    style: AppTypography.bodyMediumEmphasis.copyWith(
-                      color: isDone ? AppColors.textMuted : AppColors.textPrimary,
-                      decoration: isDone ? TextDecoration.lineThrough : null,
+          else ...[
+            if (quotationItems.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Icon(Icons.description_outlined, size: 14, color: AppColors.textMuted),
+                  const SizedBox(width: 4),
+                  Text(
+                    'ORIGINAL QUOTATION WORK (${quotationItems.length})',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  subtitle: Text(
-                    'Qty: ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 1)} · ${item.source}${item.finalValue != null ? " · Rs. ${item.finalValue!.toStringAsFixed(2)}" : ""}',
-                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: (isDone ? AppColors.success : AppColors.info).withValues(alpha: 0.15),
-                      borderRadius: AppRadius.radiusXs,
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: quotationItems.length,
+                separatorBuilder: (ctx, idx) => const Divider(color: AppColors.borderSubtle, height: 1),
+                itemBuilder: (context, index) => _buildQuotationWorkItem(job, quotationItems[index], isClosed),
+              ),
+            ],
+            if (additionalItems.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  const Icon(Icons.add_alert_outlined, size: 14, color: AppColors.warning),
+                  const SizedBox(width: 4),
+                  Text(
+                    'ADDITIONAL WORK (${additionalItems.length})',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
-                    child: Text(
-                      item.status,
-                      style: AppTypography.caption.copyWith(
-                        color: isDone ? AppColors.success : AppColors.info,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                   ),
-                );
-              },
-            ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: additionalItems.length,
+                itemBuilder: (context, index) => _buildAdditionalWorkItem(job, additionalItems[index], isClosed),
+              ),
+            ],
+          ],
         ],
       ),
     );

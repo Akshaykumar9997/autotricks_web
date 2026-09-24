@@ -66,6 +66,17 @@ class ServiceJobModel {
   int get completedItemsCount =>
       workItems.where((w) => w.status.toUpperCase() == 'COMPLETED').length;
 
+  List<ServiceWorkItemModel> get quotationWorkItems =>
+      workItems.where((w) => w.source == 'QUOTATION').toList();
+
+  List<ServiceWorkItemModel> get additionalWorkItems =>
+      workItems.where((w) => w.source == 'ADDITIONAL').toList();
+
+  List<ServiceWorkItemModel> get pendingAdditionalWorkItems =>
+      workItems.where((w) => w.source == 'ADDITIONAL' && w.approvalStatus == 'PENDING').toList();
+
+  bool get hasPendingAdditionalWork => pendingAdditionalWorkItems.isNotEmpty;
+
   factory ServiceJobModel.fromJson(Map<String, dynamic> json) {
     // 1. Vehicle extraction
     VehicleModel? vehicle;
@@ -271,10 +282,54 @@ class ServiceWorkItemModel {
     required this.updatedAt,
   });
 
+  ServiceWorkItemModel copyWith({
+    String? name,
+    String? description,
+    double? quantity,
+    String? source,
+    String? status,
+    String? approvalStatus,
+    double? approximateValue,
+    double? finalValue,
+    double? approvedValue,
+    String? decisionByProfileId,
+    DateTime? decisionAt,
+    String? approvalNote,
+    DateTime? updatedAt,
+  }) {
+    return ServiceWorkItemModel(
+      id: id,
+      serviceJobId: serviceJobId,
+      quotationItemId: quotationItemId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      quantity: quantity ?? this.quantity,
+      source: source ?? this.source,
+      status: status ?? this.status,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      approximateValue: approximateValue ?? this.approximateValue,
+      finalValue: finalValue ?? this.finalValue,
+      approvedValue: approvedValue ?? this.approvedValue,
+      decisionByProfileId: decisionByProfileId ?? this.decisionByProfileId,
+      decisionAt: decisionAt ?? this.decisionAt,
+      approvalNote: approvalNote ?? this.approvalNote,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+
   bool get isCompleted => status.toUpperCase() == 'COMPLETED';
   bool get isCancelled => status.toUpperCase() == 'CANCELLED';
   bool get isInProgress => status.toUpperCase() == 'IN_PROGRESS';
   bool get isPending => status.toUpperCase() == 'PENDING';
+
+  bool get isQuotation => source.toUpperCase() == 'QUOTATION';
+  bool get isAdditional => source.toUpperCase() == 'ADDITIONAL';
+  bool get isApprovalPending => approvalStatus.toUpperCase() == 'PENDING';
+  bool get isApproved => approvalStatus.toUpperCase() == 'APPROVED';
+  bool get isRejected => approvalStatus.toUpperCase() == 'REJECTED';
+  bool get canExecute => isQuotation || isApproved;
 
   factory ServiceWorkItemModel.fromJson(Map<String, dynamic> json) {
     return ServiceWorkItemModel(

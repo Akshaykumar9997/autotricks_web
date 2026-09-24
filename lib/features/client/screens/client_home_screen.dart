@@ -19,6 +19,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../components/service_progress_tracker.dart';
 import '../providers/client_portal_provider.dart';
 import '../utils/client_status_helper.dart';
+import '../../notifications/providers/notifications_provider.dart';
 
 /// C02 — Client Home Screen conforming to approved Stitch C02.
 class ClientHomeScreen extends ConsumerWidget {
@@ -46,6 +47,7 @@ class ClientHomeScreen extends ConsumerWidget {
     final allRequestsAsync = ref.watch(clientServiceRequestsProvider);
     final quotesAsync = ref.watch(clientQuotationsProvider);
     final pendingCount = ref.watch(clientPendingQuotesCountProvider);
+    final unreadNotificationsCount = ref.watch(unreadNotificationCountProvider);
 
     final clientName = profileAsync.value?.fullName ??
         authState.profile?.fullName ??
@@ -75,8 +77,51 @@ class ClientHomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                key: const Key('client_notification_bell_button'),
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                onPressed: () => context.push('/client/notifications'),
+              ),
+              if (unreadNotificationsCount > 0)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    key: const Key('client_unread_notification_badge'),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.surface1, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        unreadNotificationsCount > 99
+                            ? '99+'
+                            : '$unreadNotificationsCount',
+                        style: const TextStyle(
+                          color: Color(0xFF0B0D0F),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.margin),
+            padding: const EdgeInsets.only(right: AppSpacing.margin, left: 4),
             child: CircleAvatar(
               radius: 16,
               backgroundColor: AppColors.primary,
@@ -786,6 +831,42 @@ class ClientHomeScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (job.hasPendingAdditionalWork) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.12),
+                borderRadius: AppRadius.radiusMd,
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notification_important_rounded, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Action Required: Additional Work',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${job.pendingAdditionalWorkItems.length} new item(s) awaiting your authorization.',
+                          style: AppTypography.caption.copyWith(color: AppColors.textPrimary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
 
           // Visual Progress Tracker (Day 12 Section 8)

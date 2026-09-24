@@ -1,8 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/env_config.dart';
+import 'core/services/fcm_service.dart';
 import 'design_system/theme/app_theme.dart';
+import 'firebase_options.dart';
 import 'routing/app_router.dart';
 
 Future<void> main() async {
@@ -22,6 +25,25 @@ Future<void> main() async {
         );
       } catch (e) {
         debugPrint('Supabase initialization note: $e');
+      }
+    }
+
+    // Initialize Firebase using configured platform options
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      debugPrint('Firebase initialization note: $e');
+    }
+
+    // Initialize FCM client if supported on current platform
+    if (FcmService.isPlatformSupported) {
+      try {
+        final fcmService = FcmService();
+        await fcmService.initialize();
+      } catch (e) {
+        debugPrint('FCM initialization note: $e');
       }
     }
 

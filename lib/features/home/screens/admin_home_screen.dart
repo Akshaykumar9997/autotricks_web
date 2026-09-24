@@ -11,6 +11,7 @@ import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_radius.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/providers/notifications_provider.dart';
 import '../providers/home_provider.dart';
 
 /// A02 — Admin Home Screen conforming to approved Stitch A02.
@@ -21,6 +22,7 @@ class AdminHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final homeAsync = ref.watch(homeDataProvider);
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
     final userName = authState.profile?.fullName ?? 'Vikram';
 
     return Scaffold(
@@ -29,9 +31,10 @@ class AdminHomeScreen extends ConsumerWidget {
         title: 'Home',
         subtitle: 'Admin Operations',
         showLogo: true,
-        hasUnreadNotifications: true,
+        unreadCount: unreadCount,
+        hasUnreadNotifications: unreadCount > 0,
         onNotificationTap: () {
-          AutoToast.showInfo(context, 'Notifications are up to date.');
+          context.push('/admin/notifications');
         },
         onProfileTap: () {
           _showProfileSheet(context, ref);

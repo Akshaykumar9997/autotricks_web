@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:autotricks/core/services/fcm_service.dart';
 import 'package:autotricks/data/repositories/auth_repository.dart';
+import 'package:autotricks/data/repositories/device_tokens_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return SupabaseAuthRepository();
@@ -46,10 +50,24 @@ class AuthNotifier extends Notifier<AuthState> {
         if (refreshed != null && refreshed != state.profile) {
           state = state.copyWith(profile: refreshed);
         }
+        if (state.isAuthenticated) {
+          _syncDeviceToken();
+        }
       });
     }
 
     return AuthState(profile: currentProfile);
+  }
+
+  void _syncDeviceToken() {
+    if (!state.isAuthenticated) return;
+    try {
+      final fcmService = ref.read(fcmServiceProvider);
+      final tokensRepo = ref.read(deviceTokensRepositoryProvider);
+      unawaited(fcmService.syncTokenWithBackend(repository: tokensRepo));
+    } catch (e) {
+      debugPrint('[Auth] Error syncing device token: $e');
+    }
   }
 
   Future<bool> signIn({
@@ -64,6 +82,7 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
       );
       state = state.copyWith(isLoading: false, profile: profile);
+      _syncDeviceToken();
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -76,6 +95,13 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true);
+    try {
+      final fcmService = ref.read(fcmServiceProvider);
+      final tokensRepo = ref.read(deviceTokensRepositoryProvider);
+      await fcmService.deactivateCurrentToken(repository: tokensRepo);
+    } catch (e) {
+      debugPrint('[Auth] Error deactivating device token on logout: $e');
+    }
     final repo = ref.read(authRepositoryProvider);
     await repo.signOut();
     state = const AuthState();
@@ -83,3 +109,4 @@ class AuthNotifier extends Notifier<AuthState> {
 }
 
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+

@@ -21,6 +21,7 @@ import '../features/clients/screens/client_detail_screen.dart';
 import '../features/clients/screens/client_list_screen.dart';
 import '../features/clients/screens/create_edit_client_screen.dart';
 import '../features/home/screens/admin_home_screen.dart';
+import '../features/notifications/screens/notification_center_screen.dart';
 import '../features/quotes/screens/create_quote_screen.dart';
 import '../features/quotes/screens/edit_quote_revision_screen.dart';
 import '../features/quotes/screens/quote_change_requests_screen.dart';
@@ -128,6 +129,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return ClientQuoteRejectedScreen(quotationId: id);
         },
+      ),
+      GoRoute(
+        path: '/client/notifications',
+        builder: (context, state) => const NotificationCenterScreen(isAdmin: false),
       ),
 
       // Admin Portal Bottom Navigation Shell
@@ -280,6 +285,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return ServiceJobDetailScreen(jobId: id);
         },
+      ),
+      // Admin Notifications
+      GoRoute(
+        path: '/admin/notifications',
+        builder: (context, state) => const NotificationCenterScreen(isAdmin: true),
       ),
     ],
     redirect: (context, state) {

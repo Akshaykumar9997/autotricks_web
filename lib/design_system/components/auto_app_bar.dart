@@ -13,6 +13,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onBack;
   final List<Widget>? actions;
   final bool hasUnreadNotifications;
+  final int unreadCount;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
 
@@ -26,6 +27,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBack,
     this.actions,
     this.hasUnreadNotifications = false,
+    this.unreadCount = 0,
     this.onNotificationTap,
     this.onProfileTap,
   });
@@ -107,15 +109,43 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
+                    key: const Key('auto_app_bar_notification_button'),
                     icon: const Icon(Icons.notifications_none_rounded,
                         color: AppColors.textSecondary),
                     onPressed: onNotificationTap,
                   ),
-                  if (hasUnreadNotifications)
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        key: const Key('auto_app_bar_unread_badge'),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.surface1, width: 1.5),
+                        ),
+                        child: Center(
+                          child: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Color(0xFF0B0D0F),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (hasUnreadNotifications)
                     Positioned(
                       top: 10,
                       right: 10,
                       child: Container(
+                        key: const Key('auto_app_bar_unread_dot'),
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(

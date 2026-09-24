@@ -39,11 +39,17 @@ abstract class ClientPortalRepository {
     required String storagePath,
   });
 
-  // Day 12 Service Job Methods
+  // Day 12 Service Job & Additional Work Methods
   Future<ServiceJobModel?> fetchActiveServiceJob();
   Future<ServiceJobModel> getServiceJobById(String jobId);
   Future<ServiceJobModel?> getServiceJobByRequestId(String serviceRequestId);
   Future<List<ServiceJobStatusHistoryModel>> fetchJobStatusHistory(String jobId);
+  Future<Map<String, dynamic>> decideAdditionalWork({
+    required String workItemId,
+    required bool approve,
+    required num expectedFinalValue,
+    String? note,
+  });
   RealtimeChannel subscribeToClientJobs(void Function() onJobChanged);
 }
 
@@ -694,6 +700,34 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> decideAdditionalWork({
+    required String workItemId,
+    required bool approve,
+    required num expectedFinalValue,
+    String? note,
+  }) async {
+    try {
+      final params = <String, dynamic>{
+        'p_work_item_id': workItemId,
+        'p_approve': approve,
+        'p_expected_final_value': expectedFinalValue,
+      };
+      if (note != null && note.trim().isNotEmpty) {
+        params['p_note'] = note.trim();
+      }
+
+      final response = await _client.rpc(
+        'client_decide_additional_work',
+        params: params,
+      );
+
+      return Map<String, dynamic>.from(response as Map);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
   RealtimeChannel subscribeToClientJobs(void Function() onJobChanged) {
     return _client
         .channel('public:client_service_jobs')
@@ -701,6 +735,14 @@ class SupabaseClientPortalRepository implements ClientPortalRepository {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'service_jobs',
+          callback: (payload) {
+            onJobChanged();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'service_work_items',
           callback: (payload) {
             onJobChanged();
           },

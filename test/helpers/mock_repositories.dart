@@ -15,9 +15,13 @@ import 'package:autotricks/data/repositories/client_portal_repository.dart';
 import 'package:autotricks/data/repositories/client_vehicle_repository.dart';
 import 'package:autotricks/data/repositories/home_repository.dart';
 import 'package:autotricks/data/repositories/products_repository.dart';
+import 'package:autotricks/data/models/notification_model.dart';
+import 'package:autotricks/data/repositories/notifications_repository.dart';
 import 'package:autotricks/data/repositories/quotations_repository.dart';
 import 'package:autotricks/data/repositories/service_jobs_repository.dart';
 import 'package:autotricks/data/repositories/service_requests_repository.dart';
+import 'package:autotricks/data/models/device_token_model.dart';
+import 'package:autotricks/data/repositories/device_tokens_repository.dart';
 
 class MockAuthRepository implements AuthRepository {
   bool failNextSignIn = false;
@@ -2229,6 +2233,49 @@ class MockClientPortalRepository implements ClientPortalRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> decideAdditionalWork({
+    required String workItemId,
+    required bool approve,
+    required num expectedFinalValue,
+    String? note,
+  }) async {
+    for (int i = 0; i < serviceJobs.length; i++) {
+      final job = serviceJobs[i];
+      final itemIdx = job.workItems.indexWhere((w) => w.id == workItemId);
+      if (itemIdx != -1) {
+        final item = job.workItems[itemIdx];
+        if (item.source != 'ADDITIONAL') {
+          throw Exception('Only additional work items can be approved or rejected');
+        }
+        if (item.approvalStatus != 'PENDING') {
+          throw Exception('Work item has already been decided: ${item.approvalStatus}');
+        }
+        final now = DateTime.now();
+        final updatedItem = item.copyWith(
+          approvalStatus: approve ? 'APPROVED' : 'REJECTED',
+          approvedValue: approve ? expectedFinalValue.toDouble() : null,
+          decisionByProfileId: clientProfile?.id ?? '2bd5d7fb-3b55-48b1-931f-69896d3f0838',
+          decisionAt: now,
+          approvalNote: note,
+          status: approve ? item.status : 'CANCELLED',
+          updatedAt: now,
+        );
+
+        final updatedList = List<ServiceWorkItemModel>.from(job.workItems);
+        updatedList[itemIdx] = updatedItem;
+        serviceJobs[i] = job.copyWith(workItems: updatedList);
+        triggerJobChanged();
+        return {
+          'success': true,
+          'approval_status': approve ? 'APPROVED' : 'REJECTED',
+          'approved_value': approve ? expectedFinalValue : null,
+        };
+      }
+    }
+    throw Exception('Work item not found: $workItemId');
+  }
+
+  @override
   RealtimeChannel subscribeToClientJobs(void Function() onJobChanged) {
     onJobChangedListener = onJobChanged;
     return FakeRealtimeChannel();
@@ -2491,8 +2538,11 @@ class MockServiceJobsRepository implements ServiceJobsRepository {
 
       // Check all work items if COMPLETED
       if (targetStatus == 'COMPLETED') {
+        if (currentJob.hasPendingAdditionalWork) {
+          throw Exception('Cannot complete service job while additional work is awaiting client approval.');
+        }
         final hasIncomplete = currentJob.workItems.any(
-          (w) => w.status.toUpperCase() != 'COMPLETED' && w.status.toUpperCase() != 'CANCELLED',
+          (w) => (w.isQuotation || w.isApproved) && w.status.toUpperCase() != 'COMPLETED' && w.status.toUpperCase() != 'CANCELLED',
         );
         if (hasIncomplete) {
           throw Exception('Cannot complete service job while active work items are incomplete.');
@@ -2550,14 +2600,11 @@ class MockServiceJobsRepository implements ServiceJobsRepository {
       final itemIdx = job.workItems.indexWhere((w) => w.id == itemId);
       if (itemIdx != -1) {
         final currentItem = job.workItems[itemIdx];
-        final updatedItem = ServiceWorkItemModel(
-          id: currentItem.id,
-          serviceJobId: currentItem.serviceJobId,
-          name: currentItem.name,
-          description: currentItem.description,
-          source: currentItem.source,
+        if (currentItem.source == 'ADDITIONAL' && currentItem.approvalStatus != 'APPROVED') {
+          throw Exception('Additional work cannot be executed before client approval');
+        }
+        final updatedItem = currentItem.copyWith(
           status: status,
-          createdAt: currentItem.createdAt,
           updatedAt: DateTime.now(),
         );
 
@@ -2571,20 +2618,54 @@ class MockServiceJobsRepository implements ServiceJobsRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> addAdditionalWork({
+    required String serviceJobId,
+    required String name,
+    required String description,
+    required num quantity,
+    required num finalValue,
+    num? approximateValue,
+  }) async {
+    final jobIndex = jobs.indexWhere((j) => j.id == serviceJobId);
+    if (jobIndex == -1) {
+      throw Exception('Service job not found: $serviceJobId');
+    }
+    final now = DateTime.now();
+    final newItemId = 'wi-add-${now.millisecondsSinceEpoch}';
+    final newItem = ServiceWorkItemModel(
+      id: newItemId,
+      serviceJobId: serviceJobId,
+      name: name,
+      description: description,
+      quantity: quantity.toDouble(),
+      approximateValue: approximateValue?.toDouble(),
+      finalValue: finalValue.toDouble(),
+      source: 'ADDITIONAL',
+      approvalStatus: 'PENDING',
+      status: 'PENDING',
+      createdAt: now,
+      updatedAt: now,
+    );
+    final updatedWorkItems = List<ServiceWorkItemModel>.from(jobs[jobIndex].workItems)..add(newItem);
+    jobs[jobIndex] = jobs[jobIndex].copyWith(workItems: updatedWorkItems);
+    return {
+      'success': true,
+      'work_item_id': newItemId,
+      'approval_status': 'PENDING',
+    };
+  }
+
+  @override
   Future<void> completeAllWorkItems(String jobId) async {
     final jobIndex = jobs.indexWhere((j) => j.id == jobId);
     if (jobIndex != -1) {
       final job = jobs[jobIndex];
       final updatedList = job.workItems.map((w) {
-        if (w.status != 'COMPLETED' && w.status != 'CANCELLED') {
-          return ServiceWorkItemModel(
-            id: w.id,
-            serviceJobId: w.serviceJobId,
-            name: w.name,
-            description: w.description,
-            source: w.source,
+        final isApprovedAdditional = w.isAdditional && w.isApproved;
+        final isEligible = w.isQuotation || isApprovedAdditional;
+        if (isEligible && w.status != 'COMPLETED' && w.status != 'CANCELLED') {
+          return w.copyWith(
             status: 'COMPLETED',
-            createdAt: w.createdAt,
             updatedAt: DateTime.now(),
           );
         }
@@ -2595,6 +2676,170 @@ class MockServiceJobsRepository implements ServiceJobsRepository {
     }
   }
 }
+
+class MockNotificationsRepository implements NotificationsRepository {
+  List<NotificationModel> notifications = [];
+  final _controller = StreamController<List<NotificationModel>>.broadcast();
+
+  MockNotificationsRepository({List<NotificationModel>? initialNotifications}) {
+    if (initialNotifications != null) {
+      notifications = List.from(initialNotifications);
+    }
+  }
+
+  void addNotification(NotificationModel notification) {
+    notifications.insert(0, notification);
+    _notify();
+  }
+
+  void _notify() {
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(notifications));
+    }
+  }
+
+  @override
+  Future<List<NotificationModel>> getNotifications({int limit = 50}) async {
+    return notifications.take(limit).toList();
+  }
+
+  @override
+  Future<int> getUnreadCount() async {
+    return notifications.where((n) => !n.isRead).length;
+  }
+
+  @override
+  Future<void> markAsRead(String id) async {
+    final index = notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      notifications[index] = notifications[index].copyWith(
+        isRead: true,
+        readAt: DateTime.now(),
+      );
+      _notify();
+    }
+  }
+
+  @override
+  Future<void> markAllAsRead() async {
+    final now = DateTime.now();
+    notifications = notifications.map((n) {
+      if (!n.isRead) {
+        return n.copyWith(isRead: true, readAt: now);
+      }
+      return n;
+    }).toList();
+    _notify();
+  }
+
+  @override
+  Stream<List<NotificationModel>> streamNotifications({int limit = 50}) async* {
+    yield List.unmodifiable(notifications.take(limit).toList());
+    yield* _controller.stream.map((list) => list.take(limit).toList());
+  }
+
+  @override
+  RealtimeChannel subscribeToNotifications(void Function() onNotificationChanged) {
+    throw UnimplementedError('RealtimeChannel not needed in unit tests');
+  }
+
+  @override
+  Future<String?> resolveTargetRoute(
+    NotificationModel notification, {
+    required bool isAdmin,
+  }) async {
+    final entityType = notification.entityType;
+    final entityId = notification.entityId;
+
+    if (entityType == null || entityId == null) {
+      return isAdmin ? '/admin' : '/client';
+    }
+
+    switch (entityType) {
+      case 'service_request':
+        return isAdmin ? '/admin/requests/$entityId' : '/client/services/$entityId';
+      case 'quotation_revision':
+      case 'quotation':
+        return isAdmin ? '/admin/quotes/$entityId' : '/client/quotes/$entityId';
+      case 'quotation_change_request':
+        return isAdmin
+            ? '/admin/quotes/$entityId/change-requests?requestId=$entityId'
+            : '/client/quotes/$entityId';
+      case 'service_job':
+        return isAdmin ? '/admin/jobs/$entityId' : '/client/services/$entityId';
+      case 'service_work_item':
+        return isAdmin ? '/admin/jobs/$entityId' : '/client/services/$entityId';
+      case 'vehicle_correction_request':
+        return isAdmin ? '/admin/vehicles' : '/client/vehicles';
+      default:
+        return isAdmin ? '/admin' : '/client';
+    }
+  }
+
+  void dispose() {
+    _controller.close();
+  }
+}
+
+class MockDeviceTokensRepository implements DeviceTokensRepository {
+  final List<DeviceTokenModel> tokens = [];
+  bool throwOnUpsert = false;
+
+  @override
+  Future<void> upsertToken({
+    required String fcmToken,
+    required String platform,
+    String? deviceName,
+  }) async {
+    if (throwOnUpsert) {
+      throw Exception('Upsert token failed');
+    }
+    final existingIndex = tokens.indexWhere((t) => t.fcmToken == fcmToken);
+    final now = DateTime.now().toUtc();
+    if (existingIndex >= 0) {
+      final existing = tokens[existingIndex];
+      tokens[existingIndex] = existing.copyWith(
+        platform: platform,
+        deviceName: deviceName,
+        isActive: true,
+        lastSeenAt: now,
+        updatedAt: now,
+      );
+    } else {
+      tokens.add(
+        DeviceTokenModel(
+          id: 'token-${tokens.length + 1}',
+          profileId: 'usr-current',
+          fcmToken: fcmToken,
+          platform: platform,
+          deviceName: deviceName,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          lastSeenAt: now,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<void> deactivateToken(String fcmToken) async {
+    final existingIndex = tokens.indexWhere((t) => t.fcmToken == fcmToken);
+    if (existingIndex >= 0) {
+      tokens[existingIndex] = tokens[existingIndex].copyWith(
+        isActive: false,
+        updatedAt: DateTime.now().toUtc(),
+      );
+    }
+  }
+
+  @override
+  Future<List<DeviceTokenModel>> getMyActiveTokens() async {
+    return tokens.where((t) => t.isActive).toList();
+  }
+}
+
+
 
 
 
