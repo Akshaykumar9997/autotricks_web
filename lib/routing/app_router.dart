@@ -36,8 +36,41 @@ import '../features/vehicles/screens/vehicle_detail_screen.dart';
 import '../features/vehicles/screens/vehicle_list_screen.dart';
 import 'admin_shell_screen.dart';
 
+class AuthRouterState {
+  final bool isAuthenticated;
+  final bool isAdmin;
+  final bool isClient;
+
+  const AuthRouterState({
+    required this.isAuthenticated,
+    required this.isAdmin,
+    required this.isClient,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AuthRouterState &&
+          runtimeType == other.runtimeType &&
+          isAuthenticated == other.isAuthenticated &&
+          isAdmin == other.isAdmin &&
+          isClient == other.isClient;
+
+  @override
+  int get hashCode =>
+      isAuthenticated.hashCode ^ isAdmin.hashCode ^ isClient.hashCode;
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final authState = ref.watch(
+    authProvider.select(
+      (s) => AuthRouterState(
+        isAuthenticated: s.isAuthenticated,
+        isAdmin: s.isAdmin,
+        isClient: s.isClient,
+      ),
+    ),
+  );
 
   return GoRouter(
     initialLocation: authState.isAuthenticated

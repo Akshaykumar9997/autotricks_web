@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/device_tokens_repository.dart';
 import '../../firebase_options.dart';
+import 'local_notifications_service.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging.
 /// Must be a top-level function annotated with @pragma('vm:entry-point').
@@ -75,6 +76,10 @@ class FcmService {
   final _tokenController = StreamController<String>.broadcast();
   bool _initialized = false;
   DeviceTokensRepository? _tokensRepository;
+  LocalNotificationsService? _localNotificationsService;
+  void Function(FcmPayload payload)? _onNotificationTap;
+  void Function(FcmPayload payload)? _onForegroundMessage;
+  FcmPayload? _pendingInitialPayload;
 
   factory FcmService([FirebaseMessaging? customMessaging]) {
     if (customMessaging != null) {
@@ -138,6 +143,29 @@ class FcmService {
     _tokensRepository = repository;
   }
 
+  /// Attaches a LocalNotificationsService to display foreground heads-up notifications.
+  void attachLocalNotificationsService(LocalNotificationsService service) {
+    _localNotificationsService = service;
+  }
+
+  FcmPayload? get pendingInitialPayload => _pendingInitialPayload;
+
+  /// Sets or updates the notification tap callback. Flushes any pending payload.
+  void setOnNotificationTap(void Function(FcmPayload payload)? handler) {
+    _onNotificationTap = handler;
+    if (handler != null && _pendingInitialPayload != null) {
+      final p = _pendingInitialPayload!;
+      _pendingInitialPayload = null;
+      debugPrint('[NotificationTap] flushing pending FCM initial payload: $p');
+      handler(p);
+    }
+  }
+
+  /// Sets or updates the foreground message handler.
+  void setOnForegroundMessage(void Function(FcmPayload payload)? handler) {
+    _onForegroundMessage = handler;
+  }
+
   /// Syncs current FCM token to Supabase device_tokens table for the logged-in user.
   Future<void> syncTokenWithBackend({
     DeviceTokensRepository? repository,
@@ -196,6 +224,9 @@ class FcmService {
     void Function(FcmPayload payload)? onNotificationTap,
     void Function(FcmPayload payload)? onForegroundMessage,
   }) async {
+    if (onNotificationTap != null) _onNotificationTap = onNotificationTap;
+    if (onForegroundMessage != null) _onForegroundMessage = onForegroundMessage;
+
     if (!isPlatformSupported) {
       debugPrint(
         '[FCM] Skipping initialization on unsupported platform: $defaultTargetPlatform',
@@ -251,22 +282,40 @@ class FcmService {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('[FCM Foreground] Received: ${message.messageId}, data: ${message.data}');
         final payload = FcmPayload.fromRemoteMessage(message);
-        onForegroundMessage?.call(payload);
+
+        // Display local heads-up notification in foreground (does not touch DB)
+        _localNotificationsService?.showNotificationFromPayload(payload);
+
+        _onForegroundMessage?.call(payload);
       });
 
       // 6. Handle notification click when app is opened from terminated state
       final initialMessage = await _messaging.getInitialMessage();
       if (initialMessage != null) {
-        debugPrint('[FCM InitialMessage] Opened app from terminated: ${initialMessage.messageId}');
+        debugPrint(
+          '[NotificationTap] initial message detected: ${initialMessage.messageId}',
+        );
         final payload = FcmPayload.fromRemoteMessage(initialMessage);
-        onNotificationTap?.call(payload);
+        debugPrint('[NotificationTap] payload received (initial): $payload');
+        if (_onNotificationTap != null) {
+          _onNotificationTap!(payload);
+        } else {
+          _pendingInitialPayload = payload;
+        }
       }
 
       // 7. Handle notification click when app is in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        debugPrint('[FCM onMessageOpenedApp] Opened app from background: ${message.messageId}');
+        debugPrint(
+          '[NotificationTap] callback fired (onMessageOpenedApp): ${message.messageId}',
+        );
         final payload = FcmPayload.fromRemoteMessage(message);
-        onNotificationTap?.call(payload);
+        debugPrint('[NotificationTap] payload received (background): $payload');
+        if (_onNotificationTap != null) {
+          _onNotificationTap!(payload);
+        } else {
+          _pendingInitialPayload = payload;
+        }
       });
 
       _initialized = true;
@@ -281,35 +330,48 @@ class FcmService {
     FcmPayload payload, {
     required bool isAdmin,
   }) {
-    final entityType = payload.entityType;
-    final entityId = payload.entityId;
+    final entityType = payload.entityType?.trim();
+    final entityId = payload.entityId?.trim();
+    final hasValidEntityId = entityId != null && entityId.isNotEmpty;
+    final fallbackRoute =
+        isAdmin ? '/admin/notifications' : '/client/notifications';
 
-    if (entityType == null || entityId == null) {
-      return isAdmin ? '/admin/notifications' : '/client/notifications';
+    if (entityType == null || entityType.isEmpty) {
+      return fallbackRoute;
     }
 
     switch (entityType) {
       case 'service_request':
-        return isAdmin
-            ? '/admin/requests/$entityId'
-            : '/client/services/$entityId';
+        return hasValidEntityId
+            ? (isAdmin
+                ? '/admin/requests/$entityId'
+                : '/client/services/$entityId')
+            : fallbackRoute;
       case 'quotation_revision':
       case 'quotation':
-        return isAdmin
-            ? '/admin/quotes/$entityId'
-            : '/client/quotes/$entityId';
+        return hasValidEntityId
+            ? (isAdmin
+                ? '/admin/quotes/$entityId'
+                : '/client/quotes/$entityId')
+            : fallbackRoute;
       case 'quotation_change_request':
-        return isAdmin
-            ? '/admin/quotes/$entityId'
-            : '/client/quotes/$entityId';
+        return hasValidEntityId
+            ? (isAdmin
+                ? '/admin/quotes/$entityId'
+                : '/client/quotes/$entityId')
+            : fallbackRoute;
       case 'service_job':
-        return isAdmin
-            ? '/admin/jobs/$entityId'
-            : '/client/services/$entityId';
+        return hasValidEntityId
+            ? (isAdmin
+                ? '/admin/jobs/$entityId'
+                : '/client/services/$entityId')
+            : fallbackRoute;
       case 'service_work_item':
-        return isAdmin
-            ? '/admin/jobs/$entityId'
-            : '/client/services/$entityId';
+        return hasValidEntityId
+            ? (isAdmin
+                ? '/admin/jobs/$entityId'
+                : '/client/services/$entityId')
+            : fallbackRoute;
       case 'vehicle_correction_request':
         return isAdmin ? '/admin/vehicles' : '/client/vehicles';
       default:
@@ -326,7 +388,9 @@ class FcmService {
 final fcmServiceProvider = Provider<FcmService>((ref) {
   final service = FcmService();
   final repo = ref.watch(deviceTokensRepositoryProvider);
+  final localNotifs = ref.watch(localNotificationsServiceProvider);
   service.attachTokensRepository(repo);
+  service.attachLocalNotificationsService(localNotifs);
   ref.onDispose(() => service.dispose());
   return service;
 });

@@ -18,6 +18,17 @@ interface DeviceTokenRow {
   is_active: boolean;
 }
 
+interface PushDeliveryRow {
+  id: string;
+  notification_id: string;
+  device_token_id: string;
+  status: "PENDING" | "SENT" | "FAILED";
+  attempt_count: number;
+  sent_at: string | null;
+  last_attempt_at: string;
+  error_message: string | null;
+}
+
 interface ServiceAccountKey {
   project_id: string;
   client_email: string;
@@ -211,8 +222,51 @@ Deno.serve(async (req) => {
     let sent = 0;
     let failed = 0;
     let stale = 0;
+    let skipped = 0;
 
     for (const token of tokens) {
+      // 4. Idempotency Check: verify if already sent to this device token
+      const { data: existingDelivery } = await supabase
+        .from("notification_push_deliveries")
+        .select("*")
+        .eq("notification_id", notification.id)
+        .eq("device_token_id", token.id)
+        .maybeSingle<PushDeliveryRow>();
+
+      if (existingDelivery && existingDelivery.status === "SENT") {
+        console.log(
+          `[push-dispatcher] Notification ${notification.id} already delivered to token ${token.id}. Skipping duplicate send.`,
+        );
+        skipped++;
+        continue;
+      }
+
+      const attemptCount = (existingDelivery?.attempt_count || 0) + 1;
+
+      // Upsert delivery tracking record to PENDING
+      const { data: deliveryRecord, error: upsertErr } = await supabase
+        .from("notification_push_deliveries")
+        .upsert(
+          {
+            id: existingDelivery?.id,
+            notification_id: notification.id,
+            device_token_id: token.id,
+            status: "PENDING",
+            attempt_count: attemptCount,
+            last_attempt_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "notification_id,device_token_id" },
+        )
+        .select()
+        .single<PushDeliveryRow>();
+
+      if (upsertErr) {
+        console.warn("[push-dispatcher] Error upserting delivery record:", upsertErr);
+      }
+
+      const deliveryId = deliveryRecord?.id || existingDelivery?.id;
+
       const fcmMessage = {
         message: {
           token: token.fcm_token,
@@ -252,6 +306,17 @@ Deno.serve(async (req) => {
 
         if (fcmResponse.ok) {
           sent++;
+          if (deliveryId) {
+            await supabase
+              .from("notification_push_deliveries")
+              .update({
+                status: "SENT",
+                sent_at: new Date().toISOString(),
+                error_message: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", deliveryId);
+          }
         } else {
           failed++;
           const errData = await fcmResponse.json().catch(() => ({}));
@@ -259,11 +324,23 @@ Deno.serve(async (req) => {
             errData?.error?.details?.[0]?.errorCode ||
             errData?.error?.status ||
             fcmResponse.status;
+          const errMsg = JSON.stringify(errData);
 
           console.warn(
             `[push-dispatcher] FCM send failure for token ${token.fcm_token.slice(0, 10)}...:`,
             errData,
           );
+
+          if (deliveryId) {
+            await supabase
+              .from("notification_push_deliveries")
+              .update({
+                status: "FAILED",
+                error_message: errMsg,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", deliveryId);
+          }
 
           // Stale token detection: mark inactive if unregistered/invalid
           if (
@@ -285,6 +362,16 @@ Deno.serve(async (req) => {
       } catch (err) {
         failed++;
         console.error("[push-dispatcher] Network exception sending FCM:", err);
+        if (deliveryId) {
+          await supabase
+            .from("notification_push_deliveries")
+            .update({
+              status: "FAILED",
+              error_message: err instanceof Error ? err.message : String(err),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", deliveryId);
+        }
       }
     }
 
@@ -296,6 +383,7 @@ Deno.serve(async (req) => {
         sent,
         failed,
         stale,
+        skipped,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );

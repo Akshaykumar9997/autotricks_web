@@ -1,10 +1,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'core/config/env_config.dart';
 import 'core/services/fcm_service.dart';
+import 'core/services/local_notifications_service.dart';
+import 'data/models/notification_model.dart';
+import 'data/repositories/notifications_repository.dart';
 import 'design_system/theme/app_theme.dart';
+import 'features/auth/providers/auth_provider.dart';
 import 'firebase_options.dart';
 import 'routing/app_router.dart';
 
@@ -37,10 +41,19 @@ Future<void> main() async {
       debugPrint('Firebase initialization note: $e');
     }
 
+    // Initialize Local Notifications (creates Android notification channel)
+    final localNotifications = LocalNotificationsService();
+    try {
+      await localNotifications.initialize();
+    } catch (e) {
+      debugPrint('Local notifications initialization note: $e');
+    }
+
     // Initialize FCM client if supported on current platform
     if (FcmService.isPlatformSupported) {
       try {
         final fcmService = FcmService();
+        fcmService.attachLocalNotificationsService(localNotifications);
         await fcmService.initialize();
       } catch (e) {
         debugPrint('FCM initialization note: $e');
@@ -88,11 +101,104 @@ Future<void> main() async {
   }
 }
 
-class AutoTricksApp extends ConsumerWidget {
+class AutoTricksApp extends ConsumerStatefulWidget {
   const AutoTricksApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AutoTricksApp> createState() => _AutoTricksAppState();
+}
+
+class _AutoTricksAppState extends ConsumerState<AutoTricksApp> {
+  FcmPayload? _pendingPayload;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupNotificationNavigation();
+    });
+  }
+
+  void _setupNotificationNavigation() {
+    final fcmService = ref.read(fcmServiceProvider);
+    final localNotifications = ref.read(localNotificationsServiceProvider);
+
+    void handleTap(FcmPayload payload) {
+      debugPrint('[NotificationTap] callback fired');
+      debugPrint('[NotificationTap] payload received: $payload');
+      _navigateToPayload(payload);
+    }
+
+    fcmService.setOnNotificationTap(handleTap);
+    localNotifications.setTapHandler(handleTap);
+  }
+
+  Future<void> _navigateToPayload(FcmPayload payload) async {
+    final authState = ref.read(authProvider);
+
+    if (!authState.isAuthenticated) {
+      debugPrint(
+        '[NotificationTap] auth not authenticated, holding pending payload for post-auth navigation',
+      );
+      _pendingPayload = payload;
+      return;
+    }
+
+    String? route;
+    try {
+      final notifsRepo = ref.read(notificationsRepositoryProvider);
+      final model = NotificationModel(
+        id: payload.rawData['notification_id'] as String? ?? '',
+        profileId: '',
+        type: payload.notificationType ?? '',
+        title: payload.title ?? '',
+        message: payload.body ?? '',
+        entityType: payload.entityType,
+        entityId: payload.entityId,
+        createdAt: DateTime.now(),
+      );
+      route = await notifsRepo.resolveTargetRoute(
+        model,
+        isAdmin: authState.isAdmin,
+      );
+    } catch (e) {
+      debugPrint('[NotificationTap] Note resolving route via repository: $e');
+    }
+
+    route ??= FcmService.resolveRouteFromPayload(
+      payload,
+      isAdmin: authState.isAdmin,
+    );
+
+    if (route != null && mounted) {
+      debugPrint('[NotificationTap] route resolved: $route');
+      debugPrint('[NotificationTap] router ready: true');
+      debugPrint('[NotificationTap] navigating: $route');
+      final router = ref.read(routerProvider);
+      final currentLoc = router.routeInformationProvider.value.uri.toString();
+      if (currentLoc != route) {
+        router.push(route);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for auth state transitions to process any pending notification payload
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.isAuthenticated && _pendingPayload != null) {
+        final payload = _pendingPayload!;
+        _pendingPayload = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          debugPrint(
+            '[NotificationTap] auth restored, processing queued payload: $payload',
+          );
+          _navigateToPayload(payload);
+        });
+      }
+    });
+
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
