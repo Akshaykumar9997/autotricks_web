@@ -108,7 +108,7 @@ class _ClientLoginScreenState extends ConsumerState<ClientLoginScreen> {
                           ),
                         ),
                         Image.asset(
-                          AppAssets.logoMaster,
+                          AppAssets.logoSymbol,
                           width: 110,
                           height: 110,
                           fit: BoxFit.contain,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/pdf_launcher_helper.dart';
 import '../../../data/models/quotation_model.dart';
@@ -460,6 +461,23 @@ class _ClientQuoteDetailScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Official Document Header with Full AutoTricks Logo
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                AppAssets.logoFull,
+                height: 30,
+                fit: BoxFit.contain,
+              ),
+              AutoBadge(
+                label: statusInfo.label,
+                color: statusInfo.color,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           // Vehicle Name & Status
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -473,10 +491,6 @@ class _ClientQuoteDetailScreenState
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              AutoBadge(
-                label: statusInfo.label,
-                color: statusInfo.color,
               ),
             ],
           ),

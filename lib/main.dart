@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'core/config/env_config.dart';
+import 'core/constants/app_assets.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notifications_service.dart';
 import 'data/models/notification_model.dart';
 import 'data/repositories/notifications_repository.dart';
+import 'design_system/components/auto_tricks_startup_loader.dart';
 import 'design_system/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'firebase_options.dart';
@@ -110,13 +112,40 @@ class AutoTricksApp extends ConsumerStatefulWidget {
 
 class _AutoTricksAppState extends ConsumerState<AutoTricksApp> {
   FcmPayload? _pendingPayload;
+  bool _isStartupReady = false;
 
   @override
   void initState() {
     super.initState();
+    _initStartup();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupNotificationNavigation();
     });
+  }
+
+  Future<void> _initStartup() async {
+    try {
+      // 1. Precache symbol-only branding asset for sharp, immediate rendering
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          precacheImage(
+            const AssetImage(AppAssets.logoSymbol),
+            context,
+          ).catchError((_) {});
+        }
+      });
+
+      // 2. Await genuine session hydration / auth restoration without artificial delays
+      await ref.read(authProvider.notifier).waitForInitialization();
+    } catch (e) {
+      debugPrint('[StartupLoader] Startup initialization note: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartupReady = true;
+        });
+      }
+    }
   }
 
   void _setupNotificationNavigation() {
@@ -202,10 +231,26 @@ class _AutoTricksAppState extends ConsumerState<AutoTricksApp> {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'AutoTricks Admin',
+      title: 'AutoTricks',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerConfig: router,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchOutCurve: Curves.easeOutCubic,
+              child: _isStartupReady
+                  ? const SizedBox.shrink()
+                  : const AutoTricksStartupLoader(
+                      key: ValueKey('startup_loader'),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

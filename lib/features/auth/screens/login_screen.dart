@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       Image.asset(
-                        AppAssets.logoMaster,
+                        AppAssets.logoSymbol,
                         width: 104,
                         height: 104,
                         fit: BoxFit.contain,

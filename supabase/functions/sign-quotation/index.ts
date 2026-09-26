@@ -4,6 +4,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib";
+import { fullBrandLogoBase64 } from "./brand_logo.ts";
 
 const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "*")
   .split(",")
@@ -129,24 +130,44 @@ async function generateQuotationPdf(params: {
   // 1. Header Banner
   page.drawRectangle({
     x: 36,
-    y: currentY - 50,
+    y: currentY - 56,
     width: width - 72,
-    height: 54,
+    height: 60,
     color: primaryColor,
   });
 
+  // Embed official full AutoTricks brand logo: [ A Symbol ] + AutoTricks
+  let logoImg: any = null;
+  try {
+    const logoBytes = base64ToBytes(fullBrandLogoBase64);
+    logoImg = await pdfDoc.embedPng(logoBytes);
+  } catch (err) {
+    console.error("Brand logo embedding note:", err);
+  }
+
+  let textStartX = 50;
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: 48,
+      y: currentY - 52,
+      width: 50,
+      height: 50,
+    });
+    textStartX = 108;
+  }
+
   page.drawText("AUTO TRICKS", {
-    x: 50,
-    y: currentY - 25,
-    size: 20,
+    x: textStartX,
+    y: currentY - 26,
+    size: 19,
     font: fontBold,
     color: rgb(1, 1, 1),
   });
 
   page.drawText("Automotive Service, Performance & Body Engineering", {
-    x: 50,
-    y: currentY - 42,
-    size: 9,
+    x: textStartX,
+    y: currentY - 44,
+    size: 8.5,
     font: fontRegular,
     color: rgb(0.85, 0.90, 0.98),
   });

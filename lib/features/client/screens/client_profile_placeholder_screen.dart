@@ -59,7 +59,7 @@ class ClientProfilePlaceholderScreen extends ConsumerWidget {
         title: Row(
           children: [
             Image.asset(
-              AppAssets.logoMaster,
+              AppAssets.logoSymbol,
               height: 28,
               fit: BoxFit.contain,
             ),

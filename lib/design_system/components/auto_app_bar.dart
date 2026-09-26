@@ -63,7 +63,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
             ?leading,
           if (showLogo) ...[
             Image.asset(
-              AppAssets.logoMaster,
+              AppAssets.logoSymbol,
               height: 30,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => const Icon(

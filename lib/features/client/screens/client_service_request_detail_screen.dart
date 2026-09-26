@@ -70,7 +70,7 @@ class ClientServiceRequestDetailScreen extends ConsumerWidget {
         title: Row(
           children: [
             Image.asset(
-              AppAssets.logoMaster,
+              AppAssets.logoSymbol,
               height: 26,
               fit: BoxFit.contain,
             ),

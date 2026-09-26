@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/pdf_launcher_helper.dart';
 import '../../../data/models/quotation_model.dart';
@@ -945,19 +946,13 @@ class _ClientAcceptQuoteScreenState
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  quote.quotationNumber,
-                  style: AppTypography.labelMd.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Image.asset(
+                AppAssets.logoFull,
+                height: 32,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(width: AppSpacing.sm),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 8,
@@ -976,6 +971,16 @@ class _ClientAcceptQuoteScreenState
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            quote.quotationNumber,
+            style: AppTypography.labelMd.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(

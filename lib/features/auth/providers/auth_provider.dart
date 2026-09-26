@@ -38,6 +38,8 @@ class AuthState {
 }
 
 class AuthNotifier extends Notifier<AuthState> {
+  Completer<void>? _initCompleter;
+
   @override
   AuthState build() {
     final repo = ref.watch(authRepositoryProvider);
@@ -45,18 +47,34 @@ class AuthNotifier extends Notifier<AuthState> {
 
     // If a session exists, trigger async refresh in background to populate role & clientId from profiles table
     if (currentProfile != null) {
+      _initCompleter = Completer<void>();
       Future.microtask(() async {
-        final refreshed = await repo.refreshCurrentProfile();
-        if (refreshed != null && refreshed != state.profile) {
-          state = state.copyWith(profile: refreshed);
-        }
-        if (state.isAuthenticated) {
-          _syncDeviceToken();
+        try {
+          final refreshed = await repo.refreshCurrentProfile();
+          if (refreshed != null && refreshed != state.profile) {
+            state = state.copyWith(profile: refreshed);
+          }
+          if (state.isAuthenticated) {
+            _syncDeviceToken();
+          }
+        } catch (e) {
+          debugPrint('[Auth] Refresh profile note: $e');
+        } finally {
+          if (!(_initCompleter?.isCompleted ?? true)) {
+            _initCompleter?.complete();
+          }
         }
       });
     }
 
     return AuthState(profile: currentProfile);
+  }
+
+  /// Allows startup loader to wait for genuine profile hydration without artificial delays
+  Future<void> waitForInitialization() async {
+    if (_initCompleter != null && !_initCompleter!.isCompleted) {
+      await _initCompleter!.future;
+    }
   }
 
   void _syncDeviceToken() {
